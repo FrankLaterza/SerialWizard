@@ -1,118 +1,234 @@
-import Image from 'next/image'
-import { Inter } from 'next/font/google'
+import Image from "next/image";
+import {Inter} from "next/font/google";
+import {useState, useEffect} from "react";
+import {invoke} from "@tauri-apps/api/tauri";
+import {FiSend} from "react-icons/fi";
+import {Dropdown} from "@nextui-org/react";
+import {type} from "os";
+import {disconnect} from "process";
 
-const inter = Inter({ subsets: ['latin'] })
+const inter = Inter({subsets: ["latin"]});
 
 export default function Home() {
-  return (
-    <main
-      className={`flex min-h-screen flex-col items-center justify-between p-24 ${inter.className}`}
-    >
-      <div className="z-10 w-full max-w-5xl items-center justify-between font-mono text-sm lg:flex">
-        <p className="fixed left-0 top-0 flex w-full justify-center border-b border-gray-300 bg-gradient-to-b from-zinc-200 pb-6 pt-8 backdrop-blur-2xl dark:border-neutral-800 dark:bg-zinc-800/30 dark:from-inherit lg:static lg:w-auto  lg:rounded-xl lg:border lg:bg-gray-200 lg:p-4 lg:dark:bg-zinc-800/30">
-          Get started by editing&nbsp;
-          <code className="font-mono font-bold">src/pages/index.tsx</code>
-        </p>
-        <div className="fixed bottom-0 left-0 flex h-48 w-full items-end justify-center bg-gradient-to-t from-white via-white dark:from-black dark:via-black lg:static lg:h-auto lg:w-auto lg:bg-none">
-          <a
-            className="pointer-events-none flex place-items-center gap-2 p-8 lg:pointer-events-auto lg:p-0"
-            href="https://vercel.com?utm_source=create-next-app&utm_medium=default-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            By{' '}
-            <Image
-              src="/vercel.svg"
-              alt="Vercel Logo"
-              className="dark:invert"
-              width={100}
-              height={24}
-              priority
-            />
-          </a>
-        </div>
-      </div>
+    const [lines, setLines] = useState<string[]>(["hello", "world"]);
+    const [inputValue, setInputValue] = useState("");
 
-      <div className="relative flex place-items-center before:absolute before:h-[300px] before:w-[480px] before:-translate-x-1/2 before:rounded-full before:bg-gradient-radial before:from-white before:to-transparent before:blur-2xl before:content-[''] after:absolute after:-z-20 after:h-[180px] after:w-[240px] after:translate-x-1/3 after:bg-gradient-conic after:from-sky-200 after:via-blue-200 after:blur-2xl after:content-[''] before:dark:bg-gradient-to-br before:dark:from-transparent before:dark:to-blue-700/10 after:dark:from-sky-900 after:dark:via-[#0141ff]/40 before:lg:h-[360px]">
-        <Image
-          className="relative dark:drop-shadow-[0_0_0.3rem_#ffffff70] dark:invert"
-          src="/next.svg"
-          alt="Next.js Logo"
-          width={180}
-          height={37}
-          priority
-        />
-      </div>
+    const handleInputChange = (event: any) => {
+        setInputValue(event.target.value);
+    };
 
-      <div className="mb-32 grid text-center lg:mb-0 lg:grid-cols-4 lg:text-left">
-        <a
-          href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=default-template-tw&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className={`mb-3 text-2xl font-semibold`}>
-            Docs{' '}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className={`m-0 max-w-[30ch] text-sm opacity-50`}>
-            Find in-depth information about Next.js features and API.
-          </p>
-        </a>
+    async function hanndleHello() {
+        let data = await invoke("greet", {name: "World"});
+        console.log(data);
+        const newLines: any = [...lines, data];
+        setLines(newLines);
+        // invoke("greet", {name: "World"}).then(console.log).catch(console.error);
+    }
 
-        <a
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=default-template-tw&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className={`mb-3 text-2xl font-semibold`}>
-            Learn{' '}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className={`m-0 max-w-[30ch] text-sm opacity-50`}>
-            Learn about Next.js in an interactive course with&nbsp;quizzes!
-          </p>
-        </a>
+    const [isConnected, setIsConnected] = useState(false);
 
-        <a
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=default-template-tw&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className={`mb-3 text-2xl font-semibold`}>
-            Templates{' '}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className={`m-0 max-w-[30ch] text-sm opacity-50`}>
-            Discover and deploy boilerplate example Next.js&nbsp;projects.
-          </p>
-        </a>
+    async function handleConnect() {
+        // i don't know how to free the port in rust
+        setIsConnected(false);
+        console.log("connecting");
+        // get number from set<string>
+        const baud = parseInt(Array.from(selectedBaud).join(""));
+        // set the baud
+        await invoke("set_baud", {boardRate: baud});
+        // get string from set<string>
+        const port = Array.from(selectedPort).join("");
+        // set the port
+        await invoke("set_port", {portName: port});
+        let data = await invoke("open_serial", {});
+    }
 
-        <a
-          href="https://vercel.com/new?utm_source=create-next-app&utm_medium=default-template-tw&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className={`mb-3 text-2xl font-semibold`}>
-            Deploy{' '}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className={`m-0 max-w-[30ch] text-sm opacity-50`}>
-            Instantly deploy your Next.js site to a shareable URL with Vercel.
-          </p>
-        </a>
-      </div>
-    </main>
-  )
+    async function handleDisconnect() {
+        setIsConnected(false);
+        let data = await invoke("close_port", {});
+    }
+
+    async function handleSend() {
+        setInputValue("");
+
+        await invoke("send_serial", {input: inputValue});
+        let data = await invoke("receive_serial", {});
+        const newLines: any = [...lines, data];
+        setLines(newLines);
+    }
+
+    // makes a window from rust
+    async function hanndleSetup() {
+        await invoke("make_window", {});
+    }
+
+    type PortItem = {
+        name: string;
+        // add other properties here if necessary
+    };
+
+    const [selectedPort, setSelectedPort] = useState<any>(new Set(["select"]));
+    const [portItems, setPortItems] = useState<PortItem[]>([
+        {name: "no ports"},
+    ]);
+
+    async function handleGetPorts() {
+        // gets the ports
+        let data: any = await invoke("get_ports", {}); // fix type any
+        // setPortItems(data);
+        const portItems = data.map((portName: any) => ({name: portName}));
+        setPortItems(portItems);
+        console.log(portItems);
+    }
+
+    const [selectedBaud, setSelectedBaud] = useState<any>(new Set(["115200"]));
+
+    const baudItems = [
+        {name: "300"},
+        {name: "1200"},
+        {name: "2400"},
+        {name: "4800"},
+        {name: "9600"},
+        {name: "19200"},
+        {name: "38400"},
+        {name: "57600"},
+        {name: "74880"},
+        {name: "115200"},
+        {name: "230400"},
+        {name: "250000"},
+        {name: "500000"},
+        {name: "1000000"},
+        {name: "2000000"},
+    ];
+    async function handleSetBaud() {
+        // gets the ports
+        console.log(parseInt(Array.from(selectedBaud).join("")));
+        // const baud = parseInt(selectedBaud)
+        // let data: any = await invoke("set_baud", {parseInt("9600")}); // fix type any
+        // const portItems = data.map((portName: any) => ({ name: portName }));
+        // // setPortItems(data);
+        // console.log(portItems);
+    }
+
+    return (
+        <main className="flex justify-center items-center flex-col w-screen h-screen bg-gray-800">
+            {/* header */}
+            <div className="w-full h-fit py-4 text-xl text-center bg-gray-900">
+                Serial Monitor
+            </div>
+            {/* message box */}
+            <div className="w-4/6 h-full mt-5 flex justify-center flex-col bg-gray-500">
+                <div className="flex-1 overflow-y-scroll p-4">
+                    {lines.map((line, index) => (
+                        <p key={index}>{line}</p>
+                    ))}
+                </div>
+            </div>
+            {/* text box */}
+            <div className="flex flex-row items-center w-4/6">
+                <input
+                    id="myInput"
+                    type="text"
+                    className="w-full text-black border-2 border-gray-400 p-3 w-full"
+                    value={inputValue}
+                    onChange={handleInputChange}
+                />
+                <FiSend
+                    onClick={handleSend}
+                    className="color-white bg-blue-800 h-full w-14 p-3"
+                />
+            </div>
+            {/* bottom buttons */}
+            <div className="w-4/6 my-6 h-fit py-4 flex justify-around items-center flex-row text-xl text-center rounded-lg bg-gray-900 ">
+                <button
+                    onClick={isConnected ? handleDisconnect : handleConnect}
+                    className="border border-gray-400 bg-gray-600 hover:bg-gray-400 hover:text-white text-gray-200 font-bold py-2 px-4 rounded-lg"
+                >
+                    {isConnected ? "Disconnect" : "Connect"}
+                </button>
+
+                <button
+                    onClick={handleSend}
+                    className="border border-gray-400 bg-gray-600 hover:bg-gray-400 hover:text-white text-gray-200 font-bold py-2 px-4 rounded-lg"
+                >
+                    Send
+                </button>
+                {/* baud dropdown */}
+                <div className="flex flex-row justify-center items-center gap-4 border border-gray-400 bg-gray-600 text-gray-200 font-bold py-2 px-4 rounded-lg">
+                    Buad:
+                    <Dropdown disableAnimation>
+                        <Dropdown.Button
+                            flat
+                            color="primary"
+                            css={{tt: "capitalize"}}
+                        >
+                            {selectedBaud}
+                        </Dropdown.Button>
+                        <Dropdown.Menu
+                            aria-label="Multiple selection actions"
+                            color="secondary"
+                            disallowEmptySelection
+                            selectionMode="single"
+                            selectedKeys={selectedBaud}
+                            items={baudItems}
+                            onSelectionChange={setSelectedBaud}
+                        >
+                            {baudItems.map(baudItems => (
+                                <Dropdown.Item
+                                    key={baudItems.name}
+                                    color={"default"}
+                                >
+                                    {baudItems.name}
+                                </Dropdown.Item>
+                            ))}
+                            {/* <Dropdown.Item key="text">Text</Dropdown.Item>
+                        <Dropdown.Item key="number">Number</Dropdown.Item>
+                        <Dropdown.Item key="date">Date</Dropdown.Item>
+                        <Dropdown.Item key="single_date">
+                            Single Date
+                        </Dropdown.Item>
+                        <Dropdown.Item key="iteration">Iteration</Dropdown.Item> */}
+                        </Dropdown.Menu>
+                    </Dropdown>
+                </div>
+                <div className="flex flex-row justify-center items-center gap-4 border border-gray-400 bg-gray-600 text-gray-200 font-bold py-2 px-4 rounded-lg">
+                    Port:
+                    <Dropdown disableAnimation>
+                        <Dropdown.Button
+                            flat
+                            color="primary"
+                            css={{tt: "capitalize"}}
+                            onPress={handleGetPorts}
+                        >
+                            {selectedPort}
+                        </Dropdown.Button>
+                        <Dropdown.Menu
+                            aria-label="Multiple selection actions"
+                            color="secondary"
+                            disallowEmptySelection
+                            selectionMode="single"
+                            selectedKeys={selectedPort}
+                            items={portItems}
+                            onSelectionChange={setSelectedPort}
+                        >
+                            {portItems.map((portItem) => (
+                                <Dropdown.Item
+                                    key={portItem.name}
+                                    color="default"
+                                >
+                                    {portItem.name}
+                                </Dropdown.Item>
+                            ))}
+                            {/* <Dropdown.Item key="text">Text</Dropdown.Item>
+                        <Dropdown.Item key="number">Number</Dropdown.Item>
+                        <Dropdown.Item key="date">Date</Dropdown.Item>
+                        <Dropdown.Item key="single_date">
+                            Single Date
+                        </Dropdown.Item>
+                        <Dropdown.Item key="iteration">Iteration</Dropdown.Item> */}
+                        </Dropdown.Menu>
+                    </Dropdown>
+                </div>
+            </div>
+        </main>
+    );
 }
