@@ -1,29 +1,6 @@
 use serialport::*;
-use std::io::{ Write };
-use std::time::{ Duration, Instant };
-
-pub struct Data {
-    port_name: String,
-    baud_rate: u32,
-    port: Result<Box<dyn SerialPort>>,
-}
-
-impl Data {
-    pub fn new() -> Data {
-        Data {
-            port_name: String::from(""),
-            baud_rate: 115200,
-            port: Err(Error {
-                kind: serialport::ErrorKind::Unknown,
-                description: String::from(""),
-            }),
-        }
-    }
-
-    pub fn set_baud(&mut self, baud: u32) {
-        self.baud_rate = baud;
-    }
-}
+use std::io::Write;
+use std::time::{Duration, Instant};
 
 // list the ports and return a vector of strings
 pub fn list_ports() -> Vec<String> {
@@ -31,10 +8,7 @@ pub fn list_ports() -> Vec<String> {
     let ports = serialport::available_ports().expect("No ports found!");
     // make a vecotor of strings then create an iterator of ports then map port names an clone
     // and collect them into the vector
-    let port_list: Vec<String> = ports
-        .iter()
-        .map(|p| p.port_name.clone())
-        .collect();
+    let port_list: Vec<String> = ports.iter().map(|p| p.port_name.clone()).collect();
     // return the ports list
     return port_list;
 }
@@ -43,8 +17,7 @@ pub fn list_ports() -> Vec<String> {
 pub fn init_port(port_name: &String, baud_rate: u32) -> Result<Box<dyn SerialPort>> {
     println!("init serial port");
 
-    let port = serialport
-        ::new(port_name.as_str(), baud_rate)
+    let port = serialport::new(port_name.as_str(), baud_rate)
         .timeout(Duration::from_millis(10))
         .open();
     // // .expect("Failed to open port");
@@ -74,7 +47,7 @@ pub fn check_init(port: &mut Result<Box<dyn SerialPort>>) -> Result<&mut Box<dyn
 
 pub fn write_serial<'a>(
     port: &'a mut Result<Box<dyn SerialPort>>,
-    input: &'a str
+    input: &'a str,
 ) -> Result<usize> {
     // add newline
     let mut newinput = String::from(input);
@@ -84,15 +57,14 @@ pub fn write_serial<'a>(
     let output = newinput.as_bytes();
     // check if the port was initialized correctly
     match port {
-        Ok(p) =>
-            match p.write(output) {
-                Ok(w) => {
-                    return Ok(w);
-                }
-                Err(e) => {
-                    return Err(e.into());
-                }
+        Ok(p) => match p.write(output) {
+            Ok(w) => {
+                return Ok(w);
             }
+            Err(e) => {
+                return Err(e.into());
+            }
+        },
         Err(e) => {
             return Err(e.clone());
         }
@@ -124,7 +96,10 @@ pub fn wait_receive_serial(port: &mut Result<Box<dyn SerialPort>>) -> Result<Str
 
         // timeout
         if start_time.elapsed() >= Duration::from_millis(timeout_ms) {
-            return Err(Error::new(serialport::ErrorKind::Unknown, "timeout exceeded"));
+            return Err(Error::new(
+                serialport::ErrorKind::Unknown,
+                "timeout exceeded",
+            ));
         }
 
         // let str = receive_serial(port);
@@ -139,16 +114,15 @@ pub fn receive_serial(port: &mut Result<Box<dyn SerialPort>>) -> Result<String> 
 
     // the port passed in was aviable
     match port {
-        Ok(p) =>
-            match p.read(serial_buf.as_mut_slice()) {
-                Ok(size) => {
-                    let data_str = String::from_utf8_lossy(&serial_buf[..size]).to_string();
-                    return Ok(data_str);
-                }
-                Err(e) => {
-                    return Err(e.into());
-                }
+        Ok(p) => match p.read(serial_buf.as_mut_slice()) {
+            Ok(size) => {
+                let data_str = String::from_utf8_lossy(&serial_buf[..size]).to_string();
+                return Ok(data_str);
             }
+            Err(e) => {
+                return Err(e.into());
+            }
+        },
         Err(e) => {
             return Err(e.clone());
         }
