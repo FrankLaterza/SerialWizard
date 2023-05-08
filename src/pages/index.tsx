@@ -10,7 +10,7 @@ import { disconnect } from "process";
 const inter = Inter({ subsets: ["latin"] });
 
 export default function Home() {
-    const [lines, setLines] = useState<string[]>(["hello", "world"]);
+    const [lines, setLines] = useState<string[]>(["hello", "world", "hello", "hello", "hello", "hello", "hello", "hello", "hello", "hello", "hello", "hello", "hello", "hello", "hello", "hello", "hello", "hello", "hello", "hello", "hello", "hello", "hello",]);
     const [inputValue, setInputValue] = useState("");
 
     const handleInputChange = (event: any) => {
@@ -112,19 +112,19 @@ export default function Home() {
             setLines(lines => [...lines, data]);
         }
     }
-    useEffect(() => {
-        const intervalId = setInterval(update_serial, 1000);
-        return () => clearInterval(intervalId);
-    }, []);
+    // useEffect(() => {
+    //     const intervalId = setInterval(update_serial, 1000);
+    //     return () => clearInterval(intervalId);
+    // }, []);
 
     return (
-        <main className="flex justify-center items-center flex-col w-screen h-screen min-h-screen overflow-hidden bg-gray-800">
+        <main className="flex justify-start items-center flex-col w-screen h-screen max-h-screen bg-gray-800">
             {/* header */}
             <div className="w-full h-fit py-4 text-xl text-center bg-gray-900">
                 Serial Monitor
             </div>
             {/* message box */}
-            <div className="w-4/6 h-full overflow-y-scroll mt-5 flex justify-center flex-col bg-gray-500">
+            <div className="w-4/6 overflow-y-scroll mt-5 flex justify-start flex-col bg-gray-500">
                 <div className="flex-1 p-4">
                     {lines.map((line, index) => (
                         <p key={index}>{line}</p>
@@ -167,11 +167,11 @@ export default function Home() {
                         <Dropdown.Button
                             flat
                             color="primary"
-                            css={{ tt: "capitalize" }}
                         >
                             {selectedBaud}
                         </Dropdown.Button>
                         <Dropdown.Menu
+
                             aria-label="Multiple selection actions"
                             color="secondary"
                             disallowEmptySelection
@@ -180,21 +180,16 @@ export default function Home() {
                             items={baudItems}
                             onSelectionChange={setSelectedBaud}
                         >
+
                             {baudItems.map(baudItems => (
                                 <Dropdown.Item
+                                    css={{ width: '$12' }}
                                     key={baudItems.name}
                                     color={"default"}
                                 >
                                     {baudItems.name}
                                 </Dropdown.Item>
                             ))}
-                            {/* <Dropdown.Item key="text">Text</Dropdown.Item>
-                        <Dropdown.Item key="number">Number</Dropdown.Item>
-                        <Dropdown.Item key="date">Date</Dropdown.Item>
-                        <Dropdown.Item key="single_date">
-                            Single Date
-                        </Dropdown.Item>
-                        <Dropdown.Item key="iteration">Iteration</Dropdown.Item> */}
                         </Dropdown.Menu>
                     </Dropdown>
                 </div>
@@ -204,7 +199,6 @@ export default function Home() {
                         <Dropdown.Button
                             flat
                             color="primary"
-                            css={{ tt: "capitalize" }}
                             onPress={handleGetPorts}
                         >
                             {selectedPort}
@@ -226,13 +220,6 @@ export default function Home() {
                                     {portItem.name}
                                 </Dropdown.Item>
                             ))}
-                            {/* <Dropdown.Item key="text">Text</Dropdown.Item>
-                        <Dropdown.Item key="number">Number</Dropdown.Item>
-                        <Dropdown.Item key="date">Date</Dropdown.Item>
-                        <Dropdown.Item key="single_date">
-                            Single Date
-                        </Dropdown.Item>
-                        <Dropdown.Item key="iteration">Iteration</Dropdown.Item> */}
                         </Dropdown.Menu>
                     </Dropdown>
                 </div>
