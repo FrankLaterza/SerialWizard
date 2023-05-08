@@ -22,7 +22,6 @@ export default function Home() {
         console.log(data);
         const newLines: any = [...lines, data];
         setLines(newLines);
-        // invoke("greet", {name: "World"}).then(console.log).catch(console.error);
     }
 
     const [isConnected, setIsConnected] = useState(false);
