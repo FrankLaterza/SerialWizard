@@ -1,13 +1,13 @@
 import Image from "next/image";
-import {Inter} from "next/font/google";
-import {useState, useEffect} from "react";
-import {invoke} from "@tauri-apps/api/tauri";
-import {FiSend} from "react-icons/fi";
-import {Dropdown} from "@nextui-org/react";
-import {type} from "os";
-import {disconnect} from "process";
+import { Inter } from "next/font/google";
+import { useState, useEffect } from "react";
+import { invoke } from "@tauri-apps/api/tauri";
+import { FiSend } from "react-icons/fi";
+import { Dropdown } from "@nextui-org/react";
+import { type } from "os";
+import { disconnect } from "process";
 
-const inter = Inter({subsets: ["latin"]});
+const inter = Inter({ subsets: ["latin"] });
 
 export default function Home() {
     const [lines, setLines] = useState<string[]>(["hello", "world"]);
@@ -18,7 +18,7 @@ export default function Home() {
     };
 
     async function hanndleHello() {
-        let data = await invoke("greet", {name: "World"});
+        let data = await invoke("greet", { name: "World" });
         console.log(data);
         const newLines: any = [...lines, data];
         setLines(newLines);
@@ -34,11 +34,11 @@ export default function Home() {
         // get number from set<string>
         const baud = parseInt(Array.from(selectedBaud).join(""));
         // set the baud
-        await invoke("set_baud", {boardRate: baud});
+        await invoke("set_baud", { boardRate: baud });
         // get string from set<string>
         const port = Array.from(selectedPort).join("");
         // set the port
-        await invoke("set_port", {portName: port});
+        await invoke("set_port", { portName: port });
         let data = await invoke("open_serial", {});
     }
 
@@ -49,11 +49,7 @@ export default function Home() {
 
     async function handleSend() {
         setInputValue("");
-
-        await invoke("send_serial", {input: inputValue});
-        let data = await invoke("receive_serial", {});
-        const newLines: any = [...lines, data];
-        setLines(newLines);
+        await invoke("send_serial", { input: inputValue });
     }
 
     // makes a window from rust
@@ -68,14 +64,14 @@ export default function Home() {
 
     const [selectedPort, setSelectedPort] = useState<any>(new Set(["select"]));
     const [portItems, setPortItems] = useState<PortItem[]>([
-        {name: "no ports"},
+        { name: "no ports" },
     ]);
 
     async function handleGetPorts() {
         // gets the ports
         let data: any = await invoke("get_ports", {}); // fix type any
         // setPortItems(data);
-        const portItems = data.map((portName: any) => ({name: portName}));
+        const portItems = data.map((portName: any) => ({ name: portName }));
         setPortItems(portItems);
         console.log(portItems);
     }
@@ -83,21 +79,21 @@ export default function Home() {
     const [selectedBaud, setSelectedBaud] = useState<any>(new Set(["115200"]));
 
     const baudItems = [
-        {name: "300"},
-        {name: "1200"},
-        {name: "2400"},
-        {name: "4800"},
-        {name: "9600"},
-        {name: "19200"},
-        {name: "38400"},
-        {name: "57600"},
-        {name: "74880"},
-        {name: "115200"},
-        {name: "230400"},
-        {name: "250000"},
-        {name: "500000"},
-        {name: "1000000"},
-        {name: "2000000"},
+        { name: "300" },
+        { name: "1200" },
+        { name: "2400" },
+        { name: "4800" },
+        { name: "9600" },
+        { name: "19200" },
+        { name: "38400" },
+        { name: "57600" },
+        { name: "74880" },
+        { name: "115200" },
+        { name: "230400" },
+        { name: "250000" },
+        { name: "500000" },
+        { name: "1000000" },
+        { name: "2000000" },
     ];
     async function handleSetBaud() {
         // gets the ports
@@ -109,15 +105,28 @@ export default function Home() {
         // console.log(portItems);
     }
 
+    async function update_serial() {
+        let data: any = await invoke("receive_update", {}); // fix type any
+        // console.log(data)
+        if (data !== "") {
+            console.log(data);
+            setLines(lines => [...lines, data]);
+        }
+    }
+    useEffect(() => {
+        const intervalId = setInterval(update_serial, 1000);
+        return () => clearInterval(intervalId);
+    }, []);
+
     return (
-        <main className="flex justify-center items-center flex-col w-screen h-screen bg-gray-800">
+        <main className="flex justify-center items-center flex-col w-screen h-screen min-h-screen overflow-hidden bg-gray-800">
             {/* header */}
             <div className="w-full h-fit py-4 text-xl text-center bg-gray-900">
                 Serial Monitor
             </div>
             {/* message box */}
-            <div className="w-4/6 h-full mt-5 flex justify-center flex-col bg-gray-500">
-                <div className="flex-1 overflow-y-scroll p-4">
+            <div className="w-4/6 h-full overflow-y-scroll mt-5 flex justify-center flex-col bg-gray-500">
+                <div className="flex-1 p-4">
                     {lines.map((line, index) => (
                         <p key={index}>{line}</p>
                     ))}
@@ -159,7 +168,7 @@ export default function Home() {
                         <Dropdown.Button
                             flat
                             color="primary"
-                            css={{tt: "capitalize"}}
+                            css={{ tt: "capitalize" }}
                         >
                             {selectedBaud}
                         </Dropdown.Button>
@@ -196,7 +205,7 @@ export default function Home() {
                         <Dropdown.Button
                             flat
                             color="primary"
-                            css={{tt: "capitalize"}}
+                            css={{ tt: "capitalize" }}
                             onPress={handleGetPorts}
                         >
                             {selectedPort}
