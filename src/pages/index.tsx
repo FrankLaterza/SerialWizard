@@ -6,15 +6,16 @@ import { FiSend } from "react-icons/fi";
 import { Dropdown } from "@nextui-org/react";
 import { type } from "os";
 import { disconnect } from "process";
+import eta from "public/eta_space.png"
 
 const inter = Inter({ subsets: ["latin"] });
 
 export default function Home() {
-    const [lines, setLines] = useState<string[]>(["hello", "world", "hello", "hello", "hello", "hello", "hello", "hello", "hello", "hello", "hello", "hello", "hello", "hello", "hello", "hello", "hello", "hello", "hello", "hello", "hello", "hello", "hello",]);
-    const [inputValue, setInputValue] = useState("");
+    const [lines, setLines] = useState<string[]>(["hello", "world"]);
+    const [inputValueText, setInputValueText] = useState("");
 
-    const handleInputChange = (event: any) => {
-        setInputValue(event.target.value);
+    const handleInputChangeTextBox = (event: any) => {
+        setInputValueText(event.target.value);
     };
 
     async function hanndleHello() {
@@ -24,21 +25,35 @@ export default function Home() {
         setLines(newLines);
     }
 
+    function writeNewLines(str: String) {
+        const newLines: any = [...lines, str];
+        setLines(newLines);
+    }
+
     const [isConnected, setIsConnected] = useState(false);
 
     async function handleConnect() {
         // i don't know how to free the port in rust
-        setIsConnected(false);
         console.log("connecting");
         // get number from set<string>
         const baud = parseInt(Array.from(selectedBaud).join(""));
+        let res;
         // set the baud
         await invoke("set_baud", { boardRate: baud });
         // get string from set<string>
         const port = Array.from(selectedPort).join("");
         // set the port
         await invoke("set_port", { portName: port });
+        // open serial
         let data = await invoke("open_serial", {});
+        console.log(data);
+        if (!data) {
+            writeNewLines("failed to start serial port");
+            setIsConnected(false);
+        }
+        else {
+            setIsConnected(true);
+        }
     }
 
     async function handleDisconnect() {
@@ -47,10 +62,31 @@ export default function Home() {
     }
 
     async function handleSend() {
-        setInputValue("");
-        await invoke("send_serial", { input: inputValue });
+        setInputValueText("");
+        let data = await invoke("send_serial", { input: inputValueText });
+        if (!data) {
+            writeNewLines("failed to send serial");
+        }
     }
 
+    const [inputValuePower, setInputValuePower] = useState("");
+
+    const handleInputChangePower = (event: any) => {
+        setInputValuePower(event.target.value);
+    };
+    const [inputValueStop, setInputValueStop] = useState("");
+
+    const handleInputChangeStop = (event: any) => {
+        setInputValueStop(event.target.value);
+    };
+
+    async function handleWriteInput(str: String) {
+        setInputValuePower("");
+        setInputValueStop("");
+        const newLines: any = [...lines, str];
+        setLines(newLines);
+        await invoke("send_serial", { input: str });
+    }
     // makes a window from rust
     async function hanndleSetup() {
         await invoke("make_window", {});
@@ -120,38 +156,127 @@ export default function Home() {
     return (
         <main className="flex justify-start items-center flex-col w-screen h-screen max-h-screen bg-gray-800">
             {/* header */}
-            <div className="w-full h-fit py-4 text-xl text-center bg-gray-900">
+            <div className="flex flex-row gap-10 justify-center items-center w-full h-fit py-4 text-xl text-center bg-gray-900">
                 Serial Monitor
+                <Image
+                    src={eta}
+                    width={225}
+                    height={225}
+                    alt="Picture of the author"
+                />
             </div>
-            {/* message box */}
-            <div className="w-4/6 overflow-y-scroll mt-5 flex justify-start flex-col bg-gray-500">
-                <div className="flex-1 p-4">
-                    {lines.map((line, index) => (
-                        <p key={index}>{line}</p>
-                    ))}
+            {/* main message box */}
+            <div className="h-full w-full gap-2 p-5 flex flex-row">
+                {/* buttons left*/}
+                <div className="w-3/6 flex flex-col items-center">
+                    <div className="bg-gray-900 rounded-xl w-full p-2 text-xl text-center mb-2">
+                        Custom Buttons
+                    </div>
+                    {/* buttons container */}
+                    <div className="bg-gray-700 rounded-xl border-4 border-gray-600 flex flex-wrap h-full w-full justify-center items-center p-6  gap-x-6 gap-y-3">
+                        <div className="rounded-lg gap-2 bg-blue-200 p-3 h-fit w-32 flex flex-col">
+                            <input
+                                id="myInput"
+                                type="text"
+                                className="text-sm text-black border-2 border-gray-400 p-2"
+                                value={inputValuePower}
+                                onChange={handleInputChangePower}
+                            />
+                            <button
+                                onClick={() => handleWriteInput(`SET PWOUT=${inputValuePower}`)}
+                                className="border border-gray-400 bg-gray-600 hover:bg-gray-400 hover:text-white text-gray-200 font-bold py-2 px-4 rounded-lg"
+                            >
+                                Set Power
+                            </button>
+                        </div>
+
+                        <button
+                            onClick={() => handleWriteInput("SET PWOUT")}
+                            className="h-20 w-32 border border-gray-400 bg-gray-600 hover:bg-gray-400 hover:text-white text-gray-200 font-bold py-2 px-4 rounded-lg"
+                        >
+                            Print Set Power
+                        </button>
+
+                        <button
+                            onClick={() => handleWriteInput("TC")}
+                            className="h-20 w-32  border border-gray-400 bg-gray-600 hover:bg-gray-400 hover:text-white text-gray-200 font-bold py-2 px-4 rounded-lg"
+                        >
+                            Print Cold Tip Temp
+                        </button>
+
+                        <button
+                            onClick={() => handleWriteInput("P")}
+                            className="h-20 w-32 border border-gray-400 bg-gray-600 hover:bg-gray-400 hover:text-white text-gray-200 font-bold py-2 px-4 rounded-lg"
+                        >
+                            Print Power
+                        </button>
+
+                        <div className="rounded-lg gap-2 bg-blue-200 p-3 h-fit w-32 flex flex-col">
+                            <input
+                                id="myInput"
+                                type="text"
+                                className="text-sm text-black border-2 border-gray-400 p-2"
+                                value={inputValueStop}
+                                onChange={handleInputChangeStop}
+                            />
+                            <button
+                                onClick={() => handleWriteInput(`SET SSTOP=${inputValueStop}`)}
+                                className="border border-gray-400 bg-gray-600 hover:bg-gray-400 hover:text-white text-gray-200 font-bold py-2 px-4 rounded-lg"
+                            >
+
+                                Set Power
+
+                            </button>
+                        </div>
+                        <button
+                            onClick={() => handleWriteInput("E")}
+                            className="h-20 w-32 border border-gray-400 bg-gray-600 hover:bg-gray-400 hover:text-white text-gray-200 font-bold py-2 px-4 rounded-lg"
+                        >
+                            Print Error
+                        </button>
+
+                        <button
+                            onClick={() => handleWriteInput("SET SSTOP")}
+                            className="h-20 w-32 border border-gray-400 bg-gray-600 hover:bg-gray-400 hover:text-white text-gray-200 font-bold py-2 px-4 rounded-lg"
+                        >
+                            Print Stop Status
+                        </button>
+                    </div>
+                </div>
+                {/* message box and text box right */}
+                <div className="w-full h-full flex flex-col flex-fit">
+                    {/* message box */}
+                    <div className="overflow-y-scroll h-full flex justify-start flex-col bg-gray-500">
+                        <div className="flex-1 p-4">
+                            {lines.map((line, index) => (
+                                <p key={index}>{line}</p>
+                            ))}
+                        </div>
+                    </div>
+                    {/* text box */}
+                    <div className="flex flex-row items-center w-full">
+                        <input
+                            id="myInput"
+                            type="text"
+                            className="w-full text-black border-2 border-gray-400 p-3 w-full"
+                            value={inputValueText}
+                            onChange={handleInputChangeTextBox}
+                        />
+                        <FiSend
+                            onClick={handleSend}
+                            className="color-white bg-blue-800 h-full w-14 p-3"
+                        />
+                    </div>
                 </div>
             </div>
-            {/* text box */}
-            <div className="flex flex-row items-center w-4/6">
-                <input
-                    id="myInput"
-                    type="text"
-                    className="w-full text-black border-2 border-gray-400 p-3 w-full"
-                    value={inputValue}
-                    onChange={handleInputChange}
-                />
-                <FiSend
-                    onClick={handleSend}
-                    className="color-white bg-blue-800 h-full w-14 p-3"
-                />
-            </div>
             {/* bottom buttons */}
-            <div className="w-4/6 my-6 h-fit py-4 flex justify-around items-center flex-row text-xl text-center rounded-lg bg-gray-900 ">
+            <div className="w-5/6 mb-5 h-fit py-4 flex justify-around items-center flex-row text-xl text-center rounded-lg bg-gray-900 ">
                 <button
-                    onClick={isConnected ? handleDisconnect : handleConnect}
+                    // onClick={isConnected ? handleDisconnect : handleConnect}
+                    onClick={handleConnect}
                     className="border border-gray-400 bg-gray-600 hover:bg-gray-400 hover:text-white text-gray-200 font-bold py-2 px-4 rounded-lg"
                 >
-                    {isConnected ? "Disconnect" : "Connect"}
+                    {isConnected ? "Connected" : "Connect"}
                 </button>
 
                 <button

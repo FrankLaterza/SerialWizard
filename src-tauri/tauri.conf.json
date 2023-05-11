@@ -56,7 +56,7 @@
     "windows": [
       {
         "fullscreen": false,
-        "height": 800,
+        "height": 900,
         "resizable": true,
         "title": "serial",
         "width": 1200
