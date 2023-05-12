@@ -1,6 +1,6 @@
 import Image from "next/image";
 import { Inter } from "next/font/google";
-import { useState, useEffect } from "react";
+import { useState, useRef, useEffect } from "react";
 import { invoke } from "@tauri-apps/api/tauri";
 import { FiSend } from "react-icons/fi";
 import { Dropdown } from "@nextui-org/react";
@@ -11,7 +11,7 @@ import eta from "public/eta_space.png"
 const inter = Inter({ subsets: ["latin"] });
 
 export default function Home() {
-    const [lines, setLines] = useState<string[]>(["hello", "world"]);
+    const [lines, setLines] = useState<string[]>([]);
     const [inputValueText, setInputValueText] = useState("");
 
     const handleInputChangeTextBox = (event: any) => {
@@ -61,7 +61,8 @@ export default function Home() {
         let data = await invoke("close_port", {});
     }
 
-    async function handleSend() {
+    async function handleSend(event: any) {
+        event.preventDefault();
         setInputValueText("");
         let data = await invoke("send_serial", { input: inputValueText });
         if (!data) {
@@ -79,6 +80,18 @@ export default function Home() {
     const handleInputChangeStop = (event: any) => {
         setInputValueStop(event.target.value);
     };
+
+    const scrollRef = useRef<HTMLDivElement>(null);
+
+    const scrollToBottom = () => {
+        if (scrollRef.current) {
+            scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+        }
+    };
+
+    useEffect(() => {
+        scrollToBottom();
+    }, [lines, lines.length]);
 
     async function handleWriteInput(str: String) {
         setInputValuePower("");
@@ -105,9 +118,11 @@ export default function Home() {
     async function handleGetPorts() {
         // gets the ports
         let data: any = await invoke("get_ports", {}); // fix type any
+        if (data.length !== 0) {
+            const portItems = data.map((portName: any) => ({ name: portName }));
+            setPortItems(portItems);
+        }
         // setPortItems(data);
-        const portItems = data.map((portName: any) => ({ name: portName }));
-        setPortItems(portItems);
         console.log(portItems);
     }
 
@@ -154,19 +169,19 @@ export default function Home() {
     // }, []);
 
     return (
-        <main className="flex justify-start items-center flex-col w-screen h-screen max-h-screen bg-gray-800">
+        <main className="flex justify-start items-center flex-col w-screen overflow-hidden h-screen min-h-screen bg-gray-800">
             {/* header */}
-            <div className="flex flex-row gap-10 justify-center items-center w-full h-fit py-4 text-xl text-center bg-gray-900">
-                Serial Monitor
+            <div className="flex flex-row gap-10 justify-center items-center w-full h-[10%] py-4 text-xl text-center bg-gray-900">
+                Cryo Interface
                 <Image
                     src={eta}
-                    width={225}
-                    height={225}
+                    width={150}
+                    height={150}
                     alt="Picture of the author"
                 />
             </div>
             {/* main message box */}
-            <div className="h-full w-full gap-2 p-5 flex flex-row">
+            <div className="h-[77%] w-full gap-2 p-5 flex flex-row">
                 {/* buttons left*/}
                 <div className="w-3/6 flex flex-col items-center">
                     <div className="bg-gray-900 rounded-xl w-full p-2 text-xl text-center mb-2">
@@ -174,79 +189,76 @@ export default function Home() {
                     </div>
                     {/* buttons container */}
                     <div className="bg-gray-700 rounded-xl border-4 border-gray-600 flex flex-wrap h-full w-full justify-center items-center p-6  gap-x-6 gap-y-3">
-                        <div className="rounded-lg gap-2 bg-blue-200 p-3 h-fit w-32 flex flex-col">
-                            <input
-                                id="myInput"
-                                type="text"
-                                className="text-sm text-black border-2 border-gray-400 p-2"
-                                value={inputValuePower}
-                                onChange={handleInputChangePower}
-                            />
+                        <div className="rounded-lg gap-2 bg-gray-400 p-3 w-[50%] h-[20%] flex flex-row items-center justify-center">
                             <button
                                 onClick={() => handleWriteInput(`SET PWOUT=${inputValuePower}`)}
                                 className="border border-gray-400 bg-gray-600 hover:bg-gray-400 hover:text-white text-gray-200 font-bold py-2 px-4 rounded-lg"
                             >
                                 Set Power
                             </button>
+                            <input
+                                id="myInput"
+                                type="text"
+                                className="w-[40%] h-1/2 text-sm text-black border-2 border-gray-700 p-2"
+                                value={inputValuePower}
+                                onChange={handleInputChangePower}
+                            />
                         </div>
 
                         <button
                             onClick={() => handleWriteInput("SET PWOUT")}
-                            className="h-20 w-32 border border-gray-400 bg-gray-600 hover:bg-gray-400 hover:text-white text-gray-200 font-bold py-2 px-4 rounded-lg"
+                            className="h-[20%] w-[40%] border border-gray-400 bg-gray-600 hover:bg-gray-400 hover:text-white text-gray-200 font-bold py-2 px-4 rounded-lg"
                         >
                             Print Set Power
                         </button>
 
-                        <button
-                            onClick={() => handleWriteInput("TC")}
-                            className="h-20 w-32  border border-gray-400 bg-gray-600 hover:bg-gray-400 hover:text-white text-gray-200 font-bold py-2 px-4 rounded-lg"
-                        >
-                            Print Cold Tip Temp
-                        </button>
 
-                        <button
-                            onClick={() => handleWriteInput("P")}
-                            className="h-20 w-32 border border-gray-400 bg-gray-600 hover:bg-gray-400 hover:text-white text-gray-200 font-bold py-2 px-4 rounded-lg"
-                        >
-                            Print Power
-                        </button>
-
-                        <div className="rounded-lg gap-2 bg-blue-200 p-3 h-fit w-32 flex flex-col">
-                            <input
-                                id="myInput"
-                                type="text"
-                                className="text-sm text-black border-2 border-gray-400 p-2"
-                                value={inputValueStop}
-                                onChange={handleInputChangeStop}
-                            />
+                        <div className="rounded-lg gap-2 bg-gray-400 p-3 w-[50%] h-[20%] flex flex-row items-center justify-center">
                             <button
                                 onClick={() => handleWriteInput(`SET SSTOP=${inputValueStop}`)}
                                 className="border border-gray-400 bg-gray-600 hover:bg-gray-400 hover:text-white text-gray-200 font-bold py-2 px-4 rounded-lg"
                             >
-
                                 Set Power
-
                             </button>
+                            <input
+                                id="myInput"
+                                type="text"
+                                className="w-[40%] h-1/2 text-sm text-black border-2 border-gray-700 p-2"
+                                value={inputValueStop}
+                                onChange={handleInputChangeStop}
+                            />
                         </div>
-                        <button
-                            onClick={() => handleWriteInput("E")}
-                            className="h-20 w-32 border border-gray-400 bg-gray-600 hover:bg-gray-400 hover:text-white text-gray-200 font-bold py-2 px-4 rounded-lg"
-                        >
-                            Print Error
-                        </button>
 
                         <button
                             onClick={() => handleWriteInput("SET SSTOP")}
-                            className="h-20 w-32 border border-gray-400 bg-gray-600 hover:bg-gray-400 hover:text-white text-gray-200 font-bold py-2 px-4 rounded-lg"
+                            className="h-[20%] w-[40%] border border-gray-400 bg-gray-600 hover:bg-gray-400 hover:text-white text-gray-200 font-bold py-2 px-4 rounded-lg"
                         >
                             Print Stop Status
+                        </button>
+                        <button
+                            onClick={() => handleWriteInput("P")}
+                            className="h-[20%] w-[40%] border border-gray-400 bg-gray-600 hover:bg-gray-400 hover:text-white text-gray-200 font-bold py-2 px-4 rounded-lg"
+                        >
+                            Print Power
+                        </button>
+                        <button
+                            onClick={() => handleWriteInput("E")}
+                            className="h-[20%] w-[40%] border border-gray-400 bg-gray-600 hover:bg-gray-400 hover:text-white text-gray-200 font-bold py-2 px-4 rounded-lg"
+                        >
+                            Print Error
+                        </button>
+                        <button
+                            onClick={() => handleWriteInput("TC")}
+                            className="h-[20%] w-[40%] border border-gray-400 bg-gray-600 hover:bg-gray-400 hover:text-white text-gray-200 font-bold py-2 px-4 rounded-lg"
+                        >
+                            Print Cold Tip Temp
                         </button>
                     </div>
                 </div>
                 {/* message box and text box right */}
-                <div className="w-full h-full flex flex-col flex-fit">
+                <div className="w-full h-full flex flex-col">
                     {/* message box */}
-                    <div className="overflow-y-scroll h-full flex justify-start flex-col bg-gray-500">
+                    <div ref={scrollRef} className="overflow-y-scroll resize-none h-full flex flex-grow justify-start flex-col bg-gray-500">
                         <div className="flex-1 p-4">
                             {lines.map((line, index) => (
                                 <p key={index}>{line}</p>
@@ -254,7 +266,7 @@ export default function Home() {
                         </div>
                     </div>
                     {/* text box */}
-                    <div className="flex flex-row items-center w-full">
+                    <form onSubmit={handleSend} className="flex flex-row items-center w-full">
                         <input
                             id="myInput"
                             type="text"
@@ -266,11 +278,11 @@ export default function Home() {
                             onClick={handleSend}
                             className="color-white bg-blue-800 h-full w-14 p-3"
                         />
-                    </div>
+                    </form>
                 </div>
             </div>
             {/* bottom buttons */}
-            <div className="w-5/6 mb-5 h-fit py-4 flex justify-around items-center flex-row text-xl text-center rounded-lg bg-gray-900 ">
+            <div className="w-5/6 mb-5 h-[10%] py-4 flex justify-around items-center flex-row text-xl text-center rounded-lg bg-gray-900 ">
                 <button
                     // onClick={isConnected ? handleDisconnect : handleConnect}
                     onClick={handleConnect}
