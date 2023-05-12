@@ -212,13 +212,12 @@ export default function Home() {
                             Print Set Power
                         </button>
 
-
                         <div className="rounded-lg gap-2 bg-gray-400 p-3 w-[50%] h-[20%] flex flex-row items-center justify-center">
                             <button
                                 onClick={() => handleWriteInput(`SET SSTOP=${inputValueStop}`)}
                                 className="border border-gray-400 bg-gray-600 hover:bg-gray-400 hover:text-white text-gray-200 font-bold py-2 px-4 rounded-lg"
                             >
-                                Set Power
+                                Set Stop Status
                             </button>
                             <input
                                 id="myInput"
