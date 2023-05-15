@@ -163,10 +163,11 @@ export default function Home() {
             setLines(lines => [...lines, data]);
         }
     }
-    // useEffect(() => {
-    //     const intervalId = setInterval(update_serial, 1000);
-    //     return () => clearInterval(intervalId);
-    // }, []);
+    
+    useEffect(() => {
+        const intervalId = setInterval(update_serial, 1000);
+        return () => clearInterval(intervalId);
+    }, []);
 
     return (
         <main className="flex justify-start items-center flex-col w-screen overflow-hidden h-screen min-h-screen bg-gray-800">
