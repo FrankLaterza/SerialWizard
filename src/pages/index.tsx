@@ -52,6 +52,7 @@ export default function Home() {
             setIsConnected(false);
         }
         else {
+            writeNewLines("connection successful");
             setIsConnected(true);
         }
     }
@@ -63,7 +64,10 @@ export default function Home() {
 
     async function handleSend(event: any) {
         event.preventDefault();
+        const newLines: any = [...lines, inputValueText];
+        setLines(newLines);
         setInputValueText("");
+        console.log(inputValueText);
         let data = await invoke("send_serial", { input: inputValueText });
         if (!data) {
             writeNewLines("failed to send serial");
@@ -99,6 +103,7 @@ export default function Home() {
         const newLines: any = [...lines, str];
         setLines(newLines);
         await invoke("send_serial", { input: str });
+        console.log(str);
     }
     // makes a window from rust
     async function hanndleSetup() {
@@ -163,7 +168,7 @@ export default function Home() {
             setLines(lines => [...lines, data]);
         }
     }
-    
+
     useEffect(() => {
         const intervalId = setInterval(update_serial, 1000);
         return () => clearInterval(intervalId);
@@ -320,7 +325,6 @@ export default function Home() {
 
                             {baudItems.map(baudItems => (
                                 <Dropdown.Item
-                                    css={{ width: '$12' }}
                                     key={baudItems.name}
                                     color={"default"}
                                 >

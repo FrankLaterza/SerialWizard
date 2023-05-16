@@ -14,7 +14,6 @@ pub struct Data {
 pub struct AppData(Mutex<Data>);
 
 fn main() {
-
     #[tauri::command]
     fn open_serial(state: State<AppData>) -> bool {
         let mut state_gaurd = state.0.lock().unwrap();
@@ -60,8 +59,9 @@ fn main() {
     }
 
     #[tauri::command]
-    fn send_serial(state: State<AppData>, input: String) -> bool {
+    fn send_serial(state: State<AppData>, mut input: String) -> bool {
         let mut state_gaurd = state.0.lock().unwrap();
+        // input.push('\r');
         println!("writng string: {}", input);
         let write = serial_wrapper::write_serial(&mut state_gaurd.port, input.as_str());
         match write {
@@ -77,7 +77,7 @@ fn main() {
     }
 
     #[tauri::command]
-    fn receive_update(state: State<AppData>) -> String{
+    fn receive_update(state: State<AppData>) -> String {
         // return String::from("hello world");
         let mut state_gaurd = state.0.lock().unwrap();
 
