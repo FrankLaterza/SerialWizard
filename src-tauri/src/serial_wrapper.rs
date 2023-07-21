@@ -51,7 +51,7 @@ pub fn write_serial<'a>(
 ) -> Result<usize> {
     // add newline
     let mut newinput = String::from(input);
-    newinput.push_str("\r");
+    newinput.push_str("");
 
     // try to write
     let output = newinput.as_bytes();

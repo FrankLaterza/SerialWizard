@@ -1,5 +1,5 @@
 import Image from "next/image";
-import { Inter } from "next/font/google";
+import { Inter, ZCOOL_QingKe_HuangYou } from "next/font/google";
 import { useState, useRef, useEffect } from "react";
 import { invoke } from "@tauri-apps/api/tauri";
 import { FiSend } from "react-icons/fi";
@@ -11,23 +11,23 @@ import eta from "public/eta_space.png"
 const inter = Inter({ subsets: ["latin"] });
 
 export default function Home() {
-    const [lines, setLines] = useState<string[]>([]);
+    const [lines, setLines] = useState<String[]>([]);
     const [inputValueText, setInputValueText] = useState("");
+    const [messageBox, setMessageBox] = useState<String>("");
 
     const handleInputChangeTextBox = (event: any) => {
         setInputValueText(event.target.value);
     };
 
-    async function hanndleHello() {
+    async function handleHello() {
         let data = await invoke("greet", { name: "World" });
         console.log(data);
         const newLines: any = [...lines, data];
         setLines(newLines);
     }
 
-    function writeNewLines(str: String) {
-        const newLines: any = [...lines, str];
-        setLines(newLines);
+    function writeNewLines(str: string) {
+        setMessageBox((messageBox) => messageBox.concat(str));
     }
 
     const [isConnected, setIsConnected] = useState(false);
@@ -48,11 +48,11 @@ export default function Home() {
         let data = await invoke("open_serial", {});
         console.log(data);
         if (!data) {
-            writeNewLines("failed to start serial port");
+            writeNewLines("failed to start serial port\n");
             setIsConnected(false);
         }
         else {
-            writeNewLines("connection successful");
+            writeNewLines("connection successful\n");
             setIsConnected(true);
         }
     }
@@ -63,14 +63,15 @@ export default function Home() {
     }
 
     async function handleSend(event: any) {
-        event.preventDefault();
-        const newLines: any = [...lines, inputValueText];
-        setLines(newLines);
+        event.preventDefault()  ;
+        writeNewLines(inputValueText + '\n');
+        console.log(inputValueText)
         setInputValueText("");
-        console.log(inputValueText);
+        // console.log(inputValueText);
+
         let data = await invoke("send_serial", { input: inputValueText });
         if (!data) {
-            writeNewLines("failed to send serial");
+            writeNewLines("failed to send serial\n");
         }
     }
 
@@ -95,15 +96,15 @@ export default function Home() {
 
     useEffect(() => {
         scrollToBottom();
-    }, [lines, lines.length]);
+    }, [messageBox, messageBox.length]);
 
-    async function handleWriteInput(str: String) {
+    async function handleWriteInput(str: string) {
         setInputValuePower("");
         setInputValueStop("");
         const newLines: any = [...lines, str];
-        setLines(newLines);
-        await invoke("send_serial", { input: str });
-        console.log(str);
+        writeNewLines(str)
+        // await invoke("send_serial", { input: str });
+        // console.log(str);
     }
     // makes a window from rust
     async function hanndleSetup() {
@@ -128,7 +129,7 @@ export default function Home() {
             setPortItems(portItems);
         }
         // setPortItems(data);
-        console.log(portItems);
+        // console.log(portItems);
     }
 
     const [selectedBaud, setSelectedBaud] = useState<any>(new Set(["115200"]));
@@ -161,16 +162,16 @@ export default function Home() {
     }
 
     async function update_serial() {
-        let data: any = await invoke("receive_update", {}); // fix type any
+        let data: String = await invoke("receive_update", {}); // fix type any
         // console.log(data)
         if (data !== "") {
             console.log(data);
-            setLines(lines => [...lines, data]);
+            writeNewLines(data);
         }
     }
 
     useEffect(() => {
-        const intervalId = setInterval(update_serial, 1000);
+        const intervalId = setInterval(update_serial, 25);
         return () => clearInterval(intervalId);
     }, []);
 
@@ -265,9 +266,12 @@ export default function Home() {
                     {/* message box */}
                     <div ref={scrollRef} className="overflow-y-scroll resize-none h-full flex flex-grow justify-start flex-col bg-gray-500">
                         <div className="flex-1 p-4">
-                            {lines.map((line, index) => (
-                                <p key={index}>{line}</p>
+                            {messageBox.split("\n").map((line, index) => (
+                                <div key={index}>{line}</div>
                             ))}
+                            {/* {lines.map((line, index) => (
+                                <p key={index}>{line}</p>
+                            ))} */}
                         </div>
                     </div>
                     {/* text box */}
