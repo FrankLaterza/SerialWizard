@@ -15,12 +15,7 @@ export default function Home() {
     const [inputValueText, setInputValueText] = useState("");
 
 
-
-    type MessageType = {
-        message: string;
-        type: string;
-    };
-    const [messageBox, setMessageBox] = useState<MessageType[]>([]);
+    const [messageBox, setMessageBox] = useState<String>("");
 
     function getColorByType(type: String) {
         switch (type) {
@@ -37,20 +32,18 @@ export default function Home() {
 
     function messages() {
         return (
-            <div>
-              {messageBox.map(({ message, type }, index) => (
-                <div key={index} style={{ color: getColorByType(type) }}>
-                  {message}
-                </div>
-              ))}
+            
+            <div className="flex-1 p-4">
+                {messageBox.split("\n").map((line, index) => (
+                    <div key={index}>{line}</div>
+                ))}
             </div>
-          );
+        );
     };
 
-    const writeNewLines = (str: string, type: string) => {
-        setMessageBox((prevMessageBox) => [...prevMessageBox, { message: str, type }]);
-      };
-
+    function writeNewLines(str: string) {
+        setMessageBox((messageBox) => messageBox.concat(str));
+    }
     const handleInputChangeTextBox = (event: any) => {
         setInputValueText(event.target.value);
     };
@@ -115,7 +108,7 @@ export default function Home() {
 
     async function handleSend(event: any) {
         event.preventDefault();
-        writeNewLines(inputValueText + "\n", "SEND");
+        // writeNewLines(inputValueText + "\n", "SEND");
         setInputValueText("");
 
         let data = await invoke("send_serial", { input: inputValueText + getEnding() });
