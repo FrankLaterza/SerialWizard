@@ -32,7 +32,7 @@ export default function Home() {
 
     function messages() {
         return (
-            
+
             <div className="flex-1 p-4">
                 {messageBox.split("\n").map((line, index) => (
                     <div key={index}>{line}</div>
@@ -73,7 +73,7 @@ export default function Home() {
             await invoke("set_baud", { boardRate: 0 });
             await invoke("set_port", { portName: "" });
             await invoke("open_serial", {});
-            writeNewLines("\ndisconnection successful\n", "CONSOLE");
+            writeNewLines("\n(Serial console) Disconnection successful\n");
             return;
         }
 
@@ -90,11 +90,11 @@ export default function Home() {
         let data = await invoke("open_serial", {});
         console.log(data);
         if (!data) {
-            writeNewLines("\nfailed to start serial port\n", "CONSOLE");
+            writeNewLines("\n(Serial console) Failed to start serial port\n");
             setIsConnected(false);
         }
         else {
-            writeNewLines("\nconnection successful\n", "CONSOLE");
+            writeNewLines("\n(Serial console) Connection successful\n");
             setIsConnected(true);
         }
     }
@@ -108,12 +108,12 @@ export default function Home() {
 
     async function handleSend(event: any) {
         event.preventDefault();
-        // writeNewLines(inputValueText + "\n", "SEND");
+        // writeNewLines(inputValueText + "\n");
         setInputValueText("");
 
         let data = await invoke("send_serial", { input: inputValueText + getEnding() });
         if (!data) {
-            writeNewLines("\nfailed to send serial\n", "CONSOLE");
+            writeNewLines("\n(Serial console) Failed to send serial\n");
         }
     }
 
@@ -144,11 +144,9 @@ export default function Home() {
         setInputValuePower("");
         setInputValueStop("");
         const newLines: any = [...lines, str];
-        writeNewLines(str + "\n", "SEND");
-
         let data = invoke("send_serial", { input: str + getEnding() });
         if (!data) {
-            writeNewLines("\nfailed to send serial\n", "CONSOLE");
+            writeNewLines("\n(Serial console) Failed to send serial\n");
         }
     }
     // makes a window from rust
@@ -203,7 +201,7 @@ export default function Home() {
         // console.log(data)
         if (data !== "") {
             console.log(data);
-            writeNewLines(data, "RECEIVE");
+            writeNewLines(data);
         }
     }
 
@@ -345,9 +343,7 @@ export default function Home() {
                 <div className="w-full h-full flex flex-col ">
                     {/* message box */}
                     <div ref={scrollRef} className="overflow-y-scroll resize-none h-full flex flex-grow justify-start flex-col bg-gray-500">
-                        <div className="flex-1 p-4">
-                            {messages()}
-                        </div>
+                        {messages()}
                     </div>
                     {/* text box */}
                     <form onSubmit={handleSend} className="flex flex-row items-center w-full">
