@@ -1,6 +1,7 @@
 use serialport::*;
 use std::io::Write;
 use std::time::{Duration, Instant};
+use std::{io, thread};
 
 // list the ports and return a vector of strings
 pub fn list_ports() -> Vec<String> {
@@ -19,19 +20,35 @@ pub fn init_port(port_name: &String, baud_rate: u32) -> Result<Box<dyn SerialPor
 
     let port = serialport::new(port_name.as_str(), baud_rate)
         .timeout(Duration::from_millis(10))
-        .open();
-    // // .expect("Failed to open port");
+        .open()
+        .expect("Failed to open port");
 
-    // error handing
-    match port {
-        Ok(p) => {
-            return Ok(p);
+
+    let mut clone = port.try_clone().expect("Failed to clone");
+    start_listen_clone(clone);
+
+    return Ok(port);
+}
+
+// clone the port and move it into the thread
+fn start_listen_clone(mut clone: Box<dyn SerialPort>) {
+
+    // try clone
+    println!("port cloned");
+
+    // serial buffer
+    let mut serial_buf: Vec<u8> = vec![0; 32];
+
+    thread::spawn(move || loop {
+        match clone.read(serial_buf.as_mut_slice()) {
+            Ok(size) => {
+                let data_str = String::from_utf8_lossy(&serial_buf[..size]).to_string();
+                print!("{}", data_str);
+            }
+            Err(ref e) if e.kind() == io::ErrorKind::TimedOut => (),
+            Err(e) => eprintln!("{:?}", e),
         }
-        Err(e) => {
-            println!("unable to initialize port: {:?}", e);
-            return Err(e);
-        }
-    }
+    });
 }
 
 pub fn check_init(port: &mut Result<Box<dyn SerialPort>>) -> Result<&mut Box<dyn SerialPort>> {

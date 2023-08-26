@@ -15,11 +15,11 @@ pub struct AppData(Mutex<Data>);
 
 fn main() {
     #[tauri::command]
-    fn open_serial(state: State<AppData>) -> bool {
+    fn open_serial(state: State<AppData>, port_name: String, baud_rate: u32) -> bool {
         let mut state_gaurd = state.0.lock().unwrap();
         println!("{}", state_gaurd.port_name);
 
-        state_gaurd.port = serial_wrapper::init_port(&state_gaurd.port_name, state_gaurd.baud_rate);
+        state_gaurd.port = serial_wrapper::init_port(&port_name, baud_rate);
 
         let port = &state_gaurd.port;
         match port {
@@ -37,20 +37,6 @@ fn main() {
         let state_guard = state.0.lock().unwrap();
         // ... use the state_guard as needed
         std::mem::drop(state_guard); // calls the Drop implementation of Data
-    }
-
-    #[tauri::command]
-    fn set_baud(state: State<AppData>, board_rate: u32) {
-        let mut state_gaurd = state.0.lock().unwrap();
-        state_gaurd.baud_rate = board_rate;
-        println!("{}", state_gaurd.baud_rate);
-    }
-
-    #[tauri::command]
-    fn set_port(state: State<AppData>, port_name: String) {
-        let mut state_gaurd = state.0.lock().unwrap();
-        state_gaurd.port_name = port_name;
-        println!("{}", state_gaurd.port_name);
     }
 
     #[tauri::command]
@@ -146,8 +132,6 @@ fn main() {
             tauri::generate_handler![
                 greet,
                 open_serial,
-                set_baud,
-                set_port,
                 get_ports,
                 send_serial,
                 receive_update,

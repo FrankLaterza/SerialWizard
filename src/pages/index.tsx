@@ -70,24 +70,18 @@ export default function Home() {
         if (isConnected) {
             console.log(isConnected);
             setIsConnected(false);
-            await invoke("set_baud", { boardRate: 0 });
-            await invoke("set_port", { portName: "" });
-            await invoke("open_serial", {});
+            // open nothing
+            await invoke("open_serial", {portName:"", baudRate: 0});
             writeNewLines("\n(Serial console) Disconnection successful\n");
             return;
         }
 
-        // get number from set<string>
+        // get baud from set<baud>
         const baud = parseInt(Array.from(selectedBaud).join(""));
-        let res;
-        // set the baud
-        await invoke("set_baud", { boardRate: baud });
         // get string from set<string>
         const port = Array.from(selectedPort).join("");
-        // set the port
-        await invoke("set_port", { portName: port });
-        // open serial
-        let data = await invoke("open_serial", {});
+        // open port
+        let data = await invoke("open_serial", {portName: port, baudRate: baud});
         console.log(data);
         if (!data) {
             writeNewLines("\n(Serial console) Failed to start serial port\n");
@@ -229,8 +223,8 @@ export default function Home() {
     }
 
     useEffect(() => {
-        const intervalId = setInterval(update_serial, 25);
-        return () => clearInterval(intervalId);
+        // const intervalId = setInterval(update_serial, 25);
+        // return () => clearInterval(intervalId);
     }, []);
 
     const optionButtonContainerStyle = `h-[80px] lg:h-[20%] lgh:w-[90%] w-[90%] lg:w-[45%] rounded-lg gap-1 bg-gray-400 p-1 flex flex-row items-center justify-center`;
