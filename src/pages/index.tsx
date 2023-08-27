@@ -1,19 +1,19 @@
 import Image from "next/image";
-import { Inter, ZCOOL_QingKe_HuangYou } from "next/font/google";
-import { useState, useRef, useEffect } from "react";
-import { invoke } from "@tauri-apps/api/tauri";
-import { FiSend, FiPlus, FiMinus } from "react-icons/fi";
-import { Dropdown } from "@nextui-org/react";
-import { type } from "os";
-import { disconnect } from "process";
-import eta from "public/eta_space.png"
+import {Inter, ZCOOL_QingKe_HuangYou} from "next/font/google";
+import {useState, useRef, useEffect} from "react";
+import {invoke} from "@tauri-apps/api/tauri";
+import {emit, listen} from "@tauri-apps/api/event";
+import {FiSend, FiPlus, FiMinus} from "react-icons/fi";
+import {Dropdown} from "@nextui-org/react";
+import {type} from "os";
+import {disconnect} from "process";
+import eta from "public/eta_space.png";
 
-const inter = Inter({ subsets: ["latin"] });
+const inter = Inter({subsets: ["latin"]});
 
 export default function Home() {
     const [lines, setLines] = useState<String[]>([]);
     const [inputValueText, setInputValueText] = useState("");
-
 
     const [messageBox, setMessageBox] = useState<String>("");
 
@@ -32,14 +32,13 @@ export default function Home() {
 
     function messages() {
         return (
-
             <div className="flex-1 p-4">
                 {messageBox.split("\n").map((line, index) => (
                     <div key={index}>{line}</div>
                 ))}
             </div>
         );
-    };
+    }
 
     function writeNewLines(str: string) {
         setMessageBox((messageBox) => messageBox.concat(str));
@@ -49,7 +48,7 @@ export default function Home() {
     };
 
     async function handleHello() {
-        let data = await invoke("greet", { name: "World" });
+        let data = await invoke("greet", {name: "World"});
         console.log(data);
         const newLines: any = [...lines, data];
         setLines(newLines);
@@ -71,7 +70,7 @@ export default function Home() {
             console.log(isConnected);
             setIsConnected(false);
             // open nothing
-            await invoke("open_serial", {portName:"", baudRate: 0});
+            await invoke("open_serial", {portName: "", baudRate: 0});
             writeNewLines("\n(Serial console) Disconnection successful\n");
             return;
         }
@@ -81,13 +80,15 @@ export default function Home() {
         // get string from set<string>
         const port = Array.from(selectedPort).join("");
         // open port
-        let data = await invoke("open_serial", {portName: port, baudRate: baud});
+        let data = await invoke("open_serial", {
+            portName: port,
+            baudRate: baud,
+        });
         console.log(data);
         if (!data) {
             writeNewLines("\n(Serial console) Failed to start serial port\n");
             setIsConnected(false);
-        }
-        else {
+        } else {
             writeNewLines("\n(Serial console) Connection successful\n");
             setIsConnected(true);
         }
@@ -105,7 +106,9 @@ export default function Home() {
         // writeNewLines(inputValueText + "\n");
         setInputValueText("");
 
-        let data = await invoke("send_serial", { input: inputValueText + getEnding() });
+        let data = await invoke("send_serial", {
+            input: inputValueText + getEnding(),
+        });
         if (!data) {
             writeNewLines("\n(Serial console) Failed to send serial\n");
         }
@@ -138,7 +141,7 @@ export default function Home() {
         setInputValuePower("");
         setInputValueStop("");
         const newLines: any = [...lines, str];
-        let data = invoke("send_serial", { input: str + getEnding() });
+        let data = invoke("send_serial", {input: str + getEnding()});
         if (!data) {
             writeNewLines("\n(Serial console) Failed to send serial\n");
         }
@@ -156,14 +159,14 @@ export default function Home() {
     const [selectedPort, setSelectedPort] = useState<any>(new Set(["select"]));
 
     const [portItems, setPortItems] = useState<PortItem[]>([
-        { name: "no ports" },
+        {name: "no ports"},
     ]);
 
     async function handleGetPorts() {
         // gets the ports
         let data: any = await invoke("get_ports", {}); // fix type any
         if (data.length !== 0) {
-            const portItems = data.map((portName: any) => ({ name: portName }));
+            const portItems = data.map((portName: any) => ({name: portName}));
             setPortItems(portItems);
         }
         // setPortItems(data);
@@ -173,43 +176,36 @@ export default function Home() {
     const [selectedBaud, setSelectedBaud] = useState<any>(new Set(["9600"]));
 
     const baudItems = [
-        { name: "300" },
-        { name: "1200" },
-        { name: "2400" },
-        { name: "4800" },
-        { name: "9600" },
-        { name: "19200" },
-        { name: "38400" },
-        { name: "57600" },
-        { name: "74880" },
-        { name: "115200" },
-        { name: "230400" },
-        { name: "250000" },
-        { name: "500000" },
-        { name: "1000000" },
-        { name: "2000000" },
+        {name: "300"},
+        {name: "1200"},
+        {name: "2400"},
+        {name: "4800"},
+        {name: "9600"},
+        {name: "19200"},
+        {name: "38400"},
+        {name: "57600"},
+        {name: "74880"},
+        {name: "115200"},
+        {name: "230400"},
+        {name: "250000"},
+        {name: "500000"},
+        {name: "1000000"},
+        {name: "2000000"},
     ];
-
-    async function update_serial() {
-        let data: string = await invoke("receive_update", {}); // fix type any
-        // console.log(data)
-        if (data !== "") {
-            console.log(data);
-            writeNewLines(data);
-        }
-    }
-
+    
     const [ending, setEnding] = useState<any>(new Set(["\\n\\r"]));
 
     const endingItems = [
-        { name: "\\n\\r" },
-        { name: "\\n" },
-        { name: "\\r" },
-        { name: "none" }
+        {name: "\\n\\r"},
+        {name: "\\n"},
+        {name: "\\r"},
+        {name: "none"},
     ];
 
     function getEnding() {
-        console.log("ending: " + endingItems.find(item => ending.has(item.name))?.name);
+        console.log(
+            "ending: " + endingItems.find((item) => ending.has(item.name))?.name
+        );
         switch (true) {
             case ending.has("\\n\\r"):
                 return "\n\r";
@@ -223,9 +219,19 @@ export default function Home() {
     }
 
     useEffect(() => {
-        // const intervalId = setInterval(update_serial, 25);
-        // return () => clearInterval(intervalId);
+        startSerialEventListener();
     }, []);
+
+    // same as payload
+    type Payload = {
+        message: string;
+    };
+
+    async function startSerialEventListener() {
+        await listen<Payload>("updateSerial", (event: any) => {
+            writeNewLines(event.payload.message);
+        });
+    }
 
     const optionButtonContainerStyle = `h-[80px] lg:h-[20%] lgh:w-[90%] w-[90%] lg:w-[45%] rounded-lg gap-1 bg-gray-400 p-1 flex flex-row items-center justify-center`;
     const optionButtonStyle = `border border-gray-400 bg-gray-600 hover:bg-gray-400 hover:text-white text-gray-200 text-sm lg:text-base font-bold py-2 px-2 rounded-lg`;
@@ -235,32 +241,29 @@ export default function Home() {
         <main className="flex justify-between flex-col gap-0 w-screen overflow-hidden h-screen min-h-screen bg-gray-800">
             {/* header */}
             <div className="flex flex-row gap-10 px-10 justify-between items-center w-full h-100 py-4 text-xl text-center bg-gray-900">
-                {(isDropped) ?
+                {isDropped ? (
                     <FiMinus
                         onClick={handleDropToggle}
                         className="hover:bg-blue-500 color-white bg-blue-800 h-14 w-14 rounded-full p-3"
                     />
-                    :
+                ) : (
                     <FiPlus
                         onClick={handleDropToggle}
                         className="hover:bg-blue-500 color-white bg-blue-800 h-14 w-14 rounded-full p-3"
                     />
-                }
-                <div>
-                    Serial Monitor
-                </div>
+                )}
+                <div>Serial Monitor</div>
                 <Image
                     src={eta}
                     width={150}
                     height={150}
                     alt="Picture of the author"
                 />
-
             </div>
             {/* main message box */}
             <div className="h-full w-full gap-2 p-5 flex flex-row overflow-hidden">
                 {/* buttons left*/}
-                {(isDropped) ?
+                {isDropped ? (
                     <div className="w-3/6 flex flex-col items-center">
                         <div className="bg-gray-900 rounded-xl w-full p-2 text-xl text-center mb-2">
                             Custom Buttons
@@ -269,7 +272,11 @@ export default function Home() {
                         <div className="overflow-y-scroll bg-gray-700 rounded-xl border-4 border-gray-600 flex flex-wrap h-full w-full justify-center items-center p-2  gap-x-6 gap-y-3">
                             <div className={optionButtonContainerStyle}>
                                 <button
-                                    onClick={() => handleWriteCustom(`SET PWOUT=${inputValuePower}`)}
+                                    onClick={() =>
+                                        handleWriteCustom(
+                                            `SET PWOUT=${inputValuePower}`
+                                        )
+                                    }
                                     className={optionButtonStyle}
                                 >
                                     Set Power
@@ -292,7 +299,11 @@ export default function Home() {
 
                             <div className={optionButtonContainerStyle}>
                                 <button
-                                    onClick={() => handleWriteCustom(`SET SSTOP=${inputValueStop}`)}
+                                    onClick={() =>
+                                        handleWriteCustom(
+                                            `SET SSTOP=${inputValueStop}`
+                                        )
+                                    }
                                     className={optionButtonStyle}
                                 >
                                     Set Stop Status
@@ -332,15 +343,23 @@ export default function Home() {
                             </button>
                         </div>
                     </div>
-                    : ""}
+                ) : (
+                    ""
+                )}
                 {/* message box and text box right */}
                 <div className="w-full h-full flex flex-col ">
                     {/* message box */}
-                    <div ref={scrollRef} className="overflow-y-scroll resize-none h-full flex flex-grow justify-start flex-col bg-gray-500">
+                    <div
+                        ref={scrollRef}
+                        className="overflow-y-scroll resize-none h-full flex flex-grow justify-start flex-col bg-gray-500"
+                    >
                         {messages()}
                     </div>
                     {/* text box */}
-                    <form onSubmit={handleSend} className="flex flex-row items-center w-full">
+                    <form
+                        onSubmit={handleSend}
+                        className="flex flex-row items-center w-full"
+                    >
                         <input
                             id="myInput"
                             type="text"
@@ -367,10 +386,7 @@ export default function Home() {
                 <div className="flex flex-row justify-center items-center gap-4 border border-gray-400 bg-gray-600 text-gray-200 text-sm lg:text-base font-bold py-2 px-4 rounded-lg">
                     Ending:
                     <Dropdown disableAnimation>
-                        <Dropdown.Button
-                            flat
-                            color="primary"
-                        >
+                        <Dropdown.Button flat color="primary">
                             {ending}
                         </Dropdown.Button>
                         <Dropdown.Menu
@@ -382,8 +398,7 @@ export default function Home() {
                             items={endingItems}
                             onSelectionChange={setEnding}
                         >
-
-                            {endingItems.map(endingItems => (
+                            {endingItems.map((endingItems) => (
                                 <Dropdown.Item
                                     key={endingItems.name}
                                     color={"default"}
@@ -398,10 +413,7 @@ export default function Home() {
                 <div className="flex flex-row justify-center items-center gap-4 border border-gray-400 bg-gray-600 text-gray-200 text-sm lg:text-base font-bold py-2 px-4 rounded-lg">
                     Buad:
                     <Dropdown disableAnimation>
-                        <Dropdown.Button
-                            flat
-                            color="primary"
-                        >
+                        <Dropdown.Button flat color="primary">
                             {selectedBaud}
                         </Dropdown.Button>
                         <Dropdown.Menu
@@ -413,8 +425,7 @@ export default function Home() {
                             items={baudItems}
                             onSelectionChange={setSelectedBaud}
                         >
-
-                            {baudItems.map(baudItems => (
+                            {baudItems.map((baudItems) => (
                                 <Dropdown.Item
                                     key={baudItems.name}
                                     color={"default"}

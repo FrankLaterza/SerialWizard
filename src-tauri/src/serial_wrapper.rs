@@ -2,6 +2,12 @@ use serialport::*;
 use std::io::Write;
 use std::time::{Duration, Instant};
 use std::{io, thread};
+use tauri::Manager;
+
+#[derive(Clone, serde::Serialize)]
+struct Payload {
+    message: String,
+}
 
 // list the ports and return a vector of strings
 pub fn list_ports() -> Vec<String> {
@@ -15,7 +21,7 @@ pub fn list_ports() -> Vec<String> {
 }
 
 // try to init the serial and return the port
-pub fn init_port(port_name: &String, baud_rate: u32) -> Result<Box<dyn SerialPort>> {
+pub fn init_port(app: tauri::AppHandle, port_name: &String, baud_rate: u32) -> Result<Box<dyn SerialPort>> {
     println!("init serial port");
 
     let port = serialport::new(port_name.as_str(), baud_rate)
@@ -24,14 +30,16 @@ pub fn init_port(port_name: &String, baud_rate: u32) -> Result<Box<dyn SerialPor
         .expect("Failed to open port");
 
 
-    let mut clone = port.try_clone().expect("Failed to clone");
-    start_listen_clone(clone);
+    // clone port
+    let clone = port.try_clone().expect("Failed to clone");
+    start_listen_clone(app, clone);
 
+    // return port
     return Ok(port);
 }
 
 // clone the port and move it into the thread
-fn start_listen_clone(mut clone: Box<dyn SerialPort>) {
+fn start_listen_clone(app: tauri::AppHandle, mut clone: Box<dyn SerialPort>) {
 
     // try clone
     println!("port cloned");
@@ -39,12 +47,18 @@ fn start_listen_clone(mut clone: Box<dyn SerialPort>) {
     // serial buffer
     let mut serial_buf: Vec<u8> = vec![0; 32];
 
+    // move clone into thread
     thread::spawn(move || loop {
         match clone.read(serial_buf.as_mut_slice()) {
             Ok(size) => {
                 let data_str = String::from_utf8_lossy(&serial_buf[..size]).to_string();
                 print!("{}", data_str);
+                // emmit update to fronten
+                app.emit_all("updateSerial", Payload {
+                    message: data_str,
+                }).unwrap();
             }
+            // todo emmit_all on error
             Err(ref e) if e.kind() == io::ErrorKind::TimedOut => (),
             Err(e) => eprintln!("{:?}", e),
         }
