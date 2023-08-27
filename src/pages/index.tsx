@@ -192,7 +192,7 @@ export default function Home() {
         {name: "1000000"},
         {name: "2000000"},
     ];
-    
+
     const [ending, setEnding] = useState<any>(new Set(["\\n\\r"]));
 
     const endingItems = [
@@ -347,7 +347,7 @@ export default function Home() {
                     ""
                 )}
                 {/* message box and text box right */}
-                <div className="w-full h-full flex flex-col ">
+                <div className="overflow-hidden w-full h-full flex flex-col">
                     {/* message box */}
                     <div
                         ref={scrollRef}
@@ -383,7 +383,7 @@ export default function Home() {
                     {isConnected ? "Disconnect" : "Connect"}
                 </button>
                 {/* ending dropdown */}
-                <div className="flex flex-row justify-center items-center gap-4 border border-gray-400 bg-gray-600 text-gray-200 text-sm lg:text-base font-bold py-2 px-4 rounded-lg">
+                <div className="flex flex-row justify-center items-center gap-2 text-gray-200 text-sm lg:text-base font-bold rounded-lg">
                     Ending:
                     <Dropdown disableAnimation>
                         <Dropdown.Button flat color="primary">
@@ -410,7 +410,7 @@ export default function Home() {
                     </Dropdown>
                 </div>
                 {/* baud dropdown */}
-                <div className="flex flex-row justify-center items-center gap-4 border border-gray-400 bg-gray-600 text-gray-200 text-sm lg:text-base font-bold py-2 px-4 rounded-lg">
+                <div className="flex flex-row justify-center items-center gap-2 text-gray-200 text-sm lg:text-base font-bold rounded-lg">
                     Buad:
                     <Dropdown disableAnimation>
                         <Dropdown.Button flat color="primary">
@@ -436,7 +436,7 @@ export default function Home() {
                         </Dropdown.Menu>
                     </Dropdown>
                 </div>
-                <div className="flex flex-row justify-center items-center gap-4 border border-gray-400 bg-gray-600 text-gray-200 text-sm lg:text-base font-bold py-2 px-4 rounded-lg">
+                <div className="flex flex-row justify-center items-center gap-2 text-gray-200 text-sm lg:text-base font-bold rounded-lg">
                     Port:
                     <Dropdown disableAnimation>
                         <Dropdown.Button
