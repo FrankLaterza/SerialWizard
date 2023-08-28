@@ -2,11 +2,18 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 mod serial_wrapper;
 use serialport::{Error, Result, SerialPort};
+use std::path::PathBuf;
 use std::sync::Mutex;
 use tauri::State;
 
+// todo move into wrapper
+use rfd::FileDialog;
+use std::fs::File;
+use std::io::Write;
+
 pub struct Data {
     port: Result<Box<dyn SerialPort>>,
+    file_path: Option<PathBuf>,
 }
 
 pub struct AppData(Mutex<Data>);
@@ -64,55 +71,75 @@ fn send_serial(state: State<AppData>, input: String) -> bool {
 }
 
 #[tauri::command]
-fn receive_update(state: State<AppData>) -> String {
-    // return String::from("hello world");
+fn greet(name: &str) -> String {
+    format!("Hello, {}!", name)
+}
+
+// make a new window
+#[tauri::command]
+async fn make_window(handle: tauri::AppHandle) {
+    tauri::WindowBuilder::new(&handle, "Setup", tauri::WindowUrl::App("/about".into()))
+        .inner_size(500.0, 500.0)
+        .resizable(false)
+        .always_on_top(true)
+        .title("Setup")
+        .build()
+        .unwrap();
+}
+
+#[tauri::command]
+fn set_folder_path(state: State<AppData>) -> bool {
     let mut state_gaurd = state.0.lock().unwrap();
 
-    match serial_wrapper::receive_serial(&mut state_gaurd.port) {
-        Ok(p) => {
-            println!("found serial: {}", p);
-            return p;
+    let dir = FileDialog::new().set_directory("/").pick_folder();
+    // print the path
+    match dir {
+        Some(path) => {
+            // add the file name to the path get string. todo fix
+            let file_path = path.join("");
+            println!("path set {}", file_path.to_string_lossy());
+            // set path
+            state_gaurd.file_path = Some(file_path);
+            // save to path
         }
-        Err(_) => {
-            return String::from("");
+        None => {
+            return false;
         }
     }
+    return true;
+}
+
+#[tauri::command]
+fn start_record(state: State<AppData>) -> bool {
+    let mut state_gaurd = state.0.lock().unwrap();
+    return true;
+    // destroy the port by opending to nothing
+}
+
+#[tauri::command]
+fn stop_record(state: State<AppData>) -> bool {
+    let mut state_gaurd = state.0.lock().unwrap();
+
+    let dir = FileDialog::new().set_directory("/").pick_folder();
+    // print the path
+    match dir {
+        Some(path) => {
+            // add the file name to the path
+            let file_path = path.join("hello.txt"); // Use the selected path to create a file path
+                                                    // print path
+            println!("path set {}", file_path.to_string_lossy());
+            // set path
+            state_gaurd.file_path = Some(file_path);
+            // save to path
+        }
+        None => {
+            return false;
+        }
+    }
+    return true;
 }
 
 fn main() {
-    #[tauri::command]
-    fn receive_serial(state: State<AppData>) -> String {
-        let mut state_gaurd = state.0.lock().unwrap();
-
-        match serial_wrapper::wait_receive_serial(&mut state_gaurd.port) {
-            Ok(s) => {
-                println!("read found!");
-                return s;
-            }
-            Err(e) => {
-                println!("an error has occured trying to read: {}", e);
-                return String::from("");
-            }
-        }
-    }
-
-    #[tauri::command]
-    fn greet(name: &str) -> String {
-        format!("Hello, {}!", name)
-    }
-
-    // make a new window
-    #[tauri::command]
-    async fn make_window(handle: tauri::AppHandle) {
-        tauri::WindowBuilder::new(&handle, "Setup", tauri::WindowUrl::App("/about".into()))
-            .inner_size(500.0, 500.0)
-            .resizable(false)
-            .always_on_top(true)
-            .title("Setup")
-            .build()
-            .unwrap();
-    }
-
     tauri::Builder::default()
         .manage(AppData(
             // create a new unintlized port
@@ -121,6 +148,7 @@ fn main() {
                     kind: serialport::ErrorKind::Unknown,
                     description: String::from(""),
                 }),
+                file_path: None,
             }),
         ))
         .invoke_handler(tauri::generate_handler![
@@ -128,10 +156,9 @@ fn main() {
             open_serial,
             get_ports,
             send_serial,
-            receive_update,
-            receive_serial,
             make_window,
-            close_port
+            close_port,
+            set_folder_path
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
