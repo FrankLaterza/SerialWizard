@@ -8,6 +8,8 @@ import {Dropdown} from "@nextui-org/react";
 import {type} from "os";
 import {disconnect} from "process";
 import eta from "public/eta_space.png";
+import {BsFillPauseFill, BsPlayFill} from "react-icons/bs";
+import {FaFolder} from "react-icons/fa";
 
 const inter = Inter({subsets: ["latin"]});
 
@@ -60,21 +62,83 @@ export default function Home() {
         setIsDropped(!isDropped);
     }
 
+    function DropDownButton() {
+        return (
+            <>
+                {isDropped ? (
+                    <FiMinus
+                        onClick={handleDropToggle}
+                        className="hover:bg-blue-500 color-white bg-blue-800 h-12 w-12 rounded-full p-3"
+                    />
+                ) : (
+                    <FiPlus
+                        onClick={handleDropToggle}
+                        className="hover:bg-blue-500 color-white bg-blue-800 h-12 w-12 rounded-full p-3"
+                    />
+                )}
+            </>
+        );
+    }
+
+    const [isRecording, setIsRecording] = useState(true);
+
+    function handleRecordToggle() {
+        if (isRecording) {
+            writeNewLines("\n(Serial console) Recording Started\n");
+            setIsRecording(false);
+        } else {
+            writeNewLines("\n(Serial console) Recording Saved\n");
+            setIsRecording(true);
+        }
+    }
+
+    function RecordButton() {
+        return (
+            <>
+                {isRecording ? (
+                    <div className="flex flex-row items-center gap-2">
+                        Rec
+                        <BsFillPauseFill
+                            onClick={handleRecordToggle}
+                            className="hover:bg-red-500 color-white bg-red-700 h-12 w-12 rounded-full p-3"
+                        />
+                    </div>
+                ) : (
+                    <div className="flex flex-row items-center gap-2">
+                        Rec
+                        <BsPlayFill
+                            onClick={handleRecordToggle}
+                            className="hover:bg-red-500 color-red bg-red-700 h-12 w-12 rounded-full p-3"
+                        />
+                    </div>
+                )}
+            </>
+        );
+    }
+
+    async function handleFolderSet() {
+        let data = await invoke("set_folder_path");
+        if (data) {
+            writeNewLines("\n(Serial console) Path Set Successful\n");
+        } else {
+            writeNewLines("\n(Serial console) Path Set Unsuccessful\n");
+        }
+    }
+
+    function FolderButton() {
+        return (
+            <div className="flex flex-row items-center gap-2">
+                <FaFolder
+                    onClick={handleFolderSet}
+                    className="hover:bg-gray-300 color-white bg-gray-500 h-12 w-12 rounded-full p-3"
+                />
+            </div>
+        );
+    }
+
     const [isConnected, setIsConnected] = useState(false);
 
     async function handleConnect() {
-        // i don't know how to free the port in rust
-        // i guess i'll just connect to nothing and force an err
-        // if connected then connect to nothing to disconnect
-        if (isConnected) {
-            console.log(isConnected);
-            setIsConnected(false);
-            // open nothing
-            await invoke("open_serial", {portName: "", baudRate: 0});
-            writeNewLines("\n(Serial console) Disconnection successful\n");
-            return;
-        }
-
         // get baud from set<baud>
         const baud = parseInt(Array.from(selectedBaud).join(""));
         // get string from set<string>
@@ -94,9 +158,14 @@ export default function Home() {
         }
     }
 
+    // todo fix
     async function handleDisconnect() {
+        console.log(isConnected);
         setIsConnected(false);
-        let data = await invoke("close_port", {});
+        // open nothing
+        await invoke("open_serial", {portName: "", baudRate: 0});
+        writeNewLines("\n(Serial console) Disconnection successful\n");
+        return;
     }
 
     const [delimiter, setDelimiter] = useState("\n");
@@ -240,25 +309,23 @@ export default function Home() {
     return (
         <main className="flex justify-between flex-col gap-0 w-screen overflow-hidden h-screen min-h-screen bg-gray-800">
             {/* header */}
-            <div className="flex flex-row gap-10 px-10 justify-between items-center w-full h-100 py-4 text-xl text-center bg-gray-900">
-                {isDropped ? (
-                    <FiMinus
-                        onClick={handleDropToggle}
-                        className="hover:bg-blue-500 color-white bg-blue-800 h-14 w-14 rounded-full p-3"
+            <div className="flex flex-row px-10 justify-center items-center w-full h-100 py-4 text-xl text-center bg-gray-900">
+                <div className="flex justify-start w-1/3 gap-10">
+                    <DropDownButton />
+                    <RecordButton />
+                    <FolderButton />
+                </div>
+                <div className="flex justify-center w-1/3 text-center">
+                    Serial Monitor
+                </div>
+                <div className="flex justify-end w-1/3">
+                    <Image
+                        src={eta}
+                        width={150}
+                        height={150}
+                        alt="Picture of the author"
                     />
-                ) : (
-                    <FiPlus
-                        onClick={handleDropToggle}
-                        className="hover:bg-blue-500 color-white bg-blue-800 h-14 w-14 rounded-full p-3"
-                    />
-                )}
-                <div>Serial Monitor</div>
-                <Image
-                    src={eta}
-                    width={150}
-                    height={150}
-                    alt="Picture of the author"
-                />
+                </div>
             </div>
             {/* main message box */}
             <div className="h-full w-full gap-2 p-5 flex flex-row overflow-hidden">
@@ -375,13 +442,23 @@ export default function Home() {
                 </div>
             </div>
             {/* bottom buttons */}
-            <div className="w-full h-[12%] flex justify-around items-center flex-row text-xl text-center rounded-lg bg-gray-900 ">
-                <button
-                    onClick={handleConnect}
-                    className="border border-gray-400 bg-gray-600 hover:bg-gray-400 hover:text-white text-gray-200 text-sm lg:text-base font-bold py-2 px-4 rounded-lg"
-                >
-                    {isConnected ? "Disconnect" : "Connect"}
-                </button>
+            <div className="w-full h-[10%] flex justify-around items-center flex-row text-xl text-center bg-gray-900 ">
+                {isConnected ? (
+                    <button
+                        onClick={handleDisconnect}
+                        className="border border-gray-400 bg-gray-600 hover:bg-gray-400 hover:text-white text-gray-200 text-sm lg:text-base font-bold py-2 px-4 rounded-lg"
+                    >
+                        Disonnect
+                    </button>
+                ) : (
+                    <button
+                        onClick={handleConnect}
+                        className="border border-gray-400 bg-gray-600 hover:bg-gray-400 hover:text-white text-gray-200 text-sm lg:text-base font-bold py-2 px-4 rounded-lg"
+                    >
+                        Connect
+                    </button>
+                )}
+
                 {/* ending dropdown */}
                 <div className="flex flex-row justify-center items-center gap-2 text-gray-200 text-sm lg:text-base font-bold rounded-lg">
                     Ending:
