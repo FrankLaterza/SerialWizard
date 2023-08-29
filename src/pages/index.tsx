@@ -117,7 +117,7 @@ export default function Home() {
     }
 
     async function handleFolderSet() {
-        let data = await invoke("set_folder_path");
+        let data = await invoke("print_file_path");
         if (data) {
             writeNewLines("\n(Serial console) Path Set Successful\n");
         } else {

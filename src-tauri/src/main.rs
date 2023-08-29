@@ -4,7 +4,7 @@ mod serial_wrapper;
 use serialport::{Error, Result, SerialPort};
 use std::path::PathBuf;
 use std::sync::Mutex;
-use tauri::State;
+use tauri::{CustomMenuItem, Manager, Menu, MenuItem, State, Submenu, WindowBuilder};
 
 // todo move into wrapper
 use rfd::FileDialog;
@@ -71,8 +71,8 @@ fn send_serial(state: State<AppData>, input: String) -> bool {
 }
 
 #[tauri::command]
-fn greet(name: &str) -> String {
-    format!("Hello, {}!", name)
+fn greet(name: &str) {
+    println!("Hello, {}!", name);
 }
 
 // make a new window
@@ -139,7 +139,41 @@ fn stop_record(state: State<AppData>) -> bool {
     return true;
 }
 
+fn create_port_items() -> Menu {
+    let ports: Vec<String> = get_ports();
+    let mut menu = Menu::new();
+
+    for port in ports {
+        menu = menu.add_item(CustomMenuItem::new(port.clone(), port));
+    }
+
+    return menu;
+}
+
+fn create_baud_items() -> Menu {
+    let baud_rates: Vec<&str> = vec![
+        "300", "1200", "2400", "4800", "9600", "19200", "38400", "57600", "74880", "115200",
+        "230400", "250000", "500000", "1000000", "2000000",
+    ];
+
+    let mut menu = Menu::new();
+
+    for baud in baud_rates {
+        menu = menu.add_item(CustomMenuItem::new(baud.clone(), baud));
+    }
+
+    return menu;
+}
+
+#[tauri::command]
+fn print_file_path(state: State<AppData>){
+    let state_gaurd = state.0.lock().unwrap();
+    let path = state_gaurd.file_path.as_ref().expect("path not set");
+    println!("{}",path.to_string_lossy());
+}
+
 fn main() {
+    // tauri builder
     tauri::Builder::default()
         .manage(AppData(
             // create a new unintlized port
@@ -148,7 +182,7 @@ fn main() {
                     kind: serialport::ErrorKind::Unknown,
                     description: String::from(""),
                 }),
-                file_path: None,
+                file_path: Some(PathBuf::from("/dir")),
             }),
         ))
         .invoke_handler(tauri::generate_handler![
@@ -158,8 +192,35 @@ fn main() {
             send_serial,
             make_window,
             close_port,
-            set_folder_path
+            set_folder_path,
+            print_file_path
         ])
+        .menu(
+            Menu::new()
+                //.add_item(CustomMenuItem::new("file", "File"))
+                .add_submenu(Submenu::new(
+                    "File",
+                    Menu::new().add_item(CustomMenuItem::new("open", "Open")),
+                ))
+                .add_submenu(Submenu::new(
+                    "Tools",
+                    Menu::new()
+                        .add_submenu(Submenu::new("Ports", create_port_items()))
+                        .add_submenu(Submenu::new("Bauds", create_baud_items())),
+                )),
+        )
+        .on_menu_event(|event| match event.menu_item_id() {
+            "open" => {
+                let app = event.window().app_handle();
+                let state = app.state::<State<AppData>>();
+                let mut gaurd = state.0.lock().unwrap();
+                gaurd.file_path = Some(PathBuf::from("/dir"));
+            }
+            "close" => {
+
+            }
+            _ => {}
+        })
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
