@@ -182,7 +182,7 @@ fn main() {
                     kind: serialport::ErrorKind::Unknown,
                     description: String::from(""),
                 }),
-                file_path: Some(PathBuf::from("/dir")),
+                file_path: Some(PathBuf::from("/home")),
             }),
         ))
         .invoke_handler(tauri::generate_handler![
@@ -212,7 +212,7 @@ fn main() {
         .on_menu_event(|event| match event.menu_item_id() {
             "open" => {
                 let app = event.window().app_handle();
-                let state = app.state::<State<AppData>>();
+                let state = app.state::<AppData>();
                 let mut gaurd = state.0.lock().unwrap();
                 gaurd.file_path = Some(PathBuf::from("/dir"));
             }
