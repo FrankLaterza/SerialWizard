@@ -10,6 +10,7 @@ import {disconnect} from "process";
 import eta from "public/eta_space.png";
 import {BsFillPauseFill, BsPlayFill} from "react-icons/bs";
 import {FaFolder} from "react-icons/fa";
+import {MdUsbOff, MdUsb} from "react-icons/md";
 
 const inter = Inter({subsets: ["latin"]});
 
@@ -324,16 +325,17 @@ export default function Home() {
                         onSubmit={handleSend}
                         className="flex flex-row items-center w-full"
                     >
+                        {/* <MdUsb className="color-white bg-green-800 h-full w-12 p-2" /> */}
                         <input
                             id="myInput"
                             type="text"
-                            className="w-full text-black border-2 border-gray-400 p-3 w-full"
+                            className="w-full text-black border-2 border-gray-400 p-2 w-full"
                             value={inputValueText}
                             onChange={handleInputChangeTextBox}
                         />
                         <FiSend
                             onClick={handleSend}
-                            className="color-white bg-blue-800 h-full w-14 p-3"
+                            className="color-white bg-blue-800 h-full w-12 p-2"
                         />
                     </form>
                 </div>

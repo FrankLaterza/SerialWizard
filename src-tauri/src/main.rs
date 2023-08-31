@@ -49,6 +49,8 @@ fn handle_serial_connect(app: tauri::AppHandle) -> bool {
     let connected = state_gaurd.serial_thread.load(Ordering::Relaxed);
 
     if (connected) {
+
+        // anounce killing the thread
         println!("killing thread");
         state_gaurd.serial_thread.store(false, Ordering::Relaxed);
 
@@ -57,8 +59,6 @@ fn handle_serial_connect(app: tauri::AppHandle) -> bool {
             kind: serialport::ErrorKind::Unknown,
             description: String::from(""),
         });
-
-        // anounce killing the thread
 
         // update lable menu
         let port_path_clone = state_gaurd.port_items.port_path.clone();
@@ -203,8 +203,8 @@ fn save_record(state: State<AppData>) -> bool {
     return true;
 }
 
-fn set_ending(app_handle: tauri::AppHandle, ending: String) {
-    let state = app_handle.state::<AppData>();
+fn set_ending(app: tauri::AppHandle, ending: String) {
+    let state = app.state::<AppData>();
     let mut state_gaurd = state.0.lock().unwrap();
     // todo show input to user somehow
     println!("{}", ending);
@@ -221,8 +221,8 @@ fn set_ending(app_handle: tauri::AppHandle, ending: String) {
     }
 }
 
-fn set_port(app_handle: tauri::AppHandle, port_path: String) {
-    let state = app_handle.state::<AppData>();
+fn set_port(app: tauri::AppHandle, port_path: String) {
+    let state = app.state::<AppData>();
     let mut state_gaurd = state.0.lock().unwrap();
     state_gaurd.port_items.port_path = port_path;
 
@@ -231,7 +231,7 @@ fn set_port(app_handle: tauri::AppHandle, port_path: String) {
     let baud_rate_clone = state_gaurd.port_items.baud_rate.clone();
     let lable_title: String = format!("Connect: {} | {}", port_path_clone, baud_rate_clone);
     // update the menu
-    let main_window = app_handle.get_window("main").unwrap();
+    let main_window = app.get_window("main").unwrap();
     let menu_handle = main_window.menu_handle();
     // set the menu
     menu_handle
@@ -240,8 +240,8 @@ fn set_port(app_handle: tauri::AppHandle, port_path: String) {
         .expect("Failed to change menu");
 }
 
-fn set_baud(app_handle: tauri::AppHandle, baud_rate: String) {
-    let state = app_handle.state::<AppData>();
+fn set_baud(app: tauri::AppHandle, baud_rate: String) {
+    let state = app.state::<AppData>();
     let mut state_gaurd = state.0.lock().unwrap();
     state_gaurd.port_items.baud_rate = baud_rate;
 
@@ -250,7 +250,7 @@ fn set_baud(app_handle: tauri::AppHandle, baud_rate: String) {
     let baud_rate_clone = state_gaurd.port_items.baud_rate.clone();
     let lable_title: String = format!("Connect: {} | {}", port_path_clone, baud_rate_clone);
     // update the menu
-    let main_window = app_handle.get_window("main").unwrap();
+    let main_window = app.get_window("main").unwrap();
     let menu_handle = main_window.menu_handle();
     // set the menu
     menu_handle
@@ -269,13 +269,29 @@ fn create_ending_items(endings: Vec<&str>) -> Menu {
 }
 
 fn create_port_items() -> Menu {
-    let ports: Vec<String> = get_ports();
     let mut menu = Menu::new();
+    let ports: Vec<String> = get_ports();
     for port in ports {
         menu = menu.add_item(CustomMenuItem::new(port.clone(), port));
     }
+    // add refresh button
+    menu = menu.add_item(CustomMenuItem::new("refresh", "Refresh"));
 
     return menu;
+}
+
+// todo find better solution
+fn refresh_port_items(app: tauri::AppHandle){
+
+    // get the existing menu
+    let main_window = app.get_window("main").unwrap();
+    let menu_handle = main_window.menu_handle();
+    
+    let ports: Vec<String> = get_ports();
+    for port in ports {
+        menu_handle.print_ids();
+    }
+
 }
 
 fn create_baud_items(baud_rates: Vec<&str>) -> Menu {
@@ -286,6 +302,7 @@ fn create_baud_items(baud_rates: Vec<&str>) -> Menu {
 
     return menu;
 }
+
 
 fn main() {
     let baud_rates: Vec<&str> = vec![
@@ -347,31 +364,35 @@ fn main() {
                 };
             }
             "start" => {
-                let app_handle = event.window().app_handle();
-                let state = app_handle.state::<AppData>();
+                let app = event.window().app_handle();
+                let state = app.state::<AppData>();
                 start_record(state);
             }
             "save" => {
-                let app_handle = event.window().app_handle();
-                let state = app_handle.state::<AppData>();
+                let app = event.window().app_handle();
+                let state = app.state::<AppData>();
                 save_record(state);
             }
             "connect" => {
-                let app_handle = event.window().app_handle();
-                handle_serial_connect(app_handle);
+                let app = event.window().app_handle();
+                handle_serial_connect(app);
+            }
+            "refresh" => {
+                let app = event.window().app_handle();
+                refresh_port_items(app);
             }
             _ => {
                 for end in &endings {
                     if (end == &event.menu_item_id()) {
-                        let app_handle = event.window().app_handle();
-                        set_ending(app_handle, end.to_string());
+                        let app = event.window().app_handle();
+                        set_ending(app, end.to_string());
                     }
                 }
 
                 for baud in &baud_rates {
                     if (baud == &event.menu_item_id()) {
-                        let app_handle = event.window().app_handle();
-                        set_baud(app_handle, baud.to_string());
+                        let app = event.window().app_handle();
+                        set_baud(app, baud.to_string());
                     }
                 }
 
@@ -379,8 +400,8 @@ fn main() {
                 let ports = get_ports();
                 for port in ports {
                     if (port == event.menu_item_id()) {
-                        let app_handle = event.window().app_handle();
-                        set_port(app_handle, port);
+                        let app = event.window().app_handle();
+                        set_port(app, port);
                     }
                 }
             }
