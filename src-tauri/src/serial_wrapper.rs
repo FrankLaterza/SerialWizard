@@ -6,7 +6,7 @@ use std::sync::{
 };
 use std::time::Duration;
 use std::{io, thread};
-use tauri::{Manager, State};
+use tauri::Manager;
 
 #[derive(Clone, serde::Serialize)]
 struct Payload {
@@ -44,6 +44,8 @@ pub fn start_clone_thread(
     app: tauri::AppHandle,
     port_clone: Result<Box<dyn SerialPort>>,
     serial_thread_clone: Arc<AtomicBool>,
+    record_toggle_clone: Arc<AtomicBool>,
+    file: Arc<crate::Mutex<Option<crate::File>>>,
 ) {
     // clone port
     println!("port cloned");
@@ -56,23 +58,42 @@ pub fn start_clone_thread(
 
     // move clone into thread
     thread::spawn(move || {
-            while serial_thread_clone.load(Ordering::Relaxed) {
-                // error check before unwrap
-                match clone.read(serial_buf.as_mut_slice()) {
-                    Ok(size) => {
-                        let data_str = String::from_utf8_lossy(&serial_buf[..size]).to_string();
-                        print!("{}", data_str);
-                        // emmit update to fronten
-                        app.emit_all("updateSerial", Payload { message: data_str })
-                            .unwrap();
+        // unclock file
+        // loop through all data
+        while serial_thread_clone.load(Ordering::Relaxed) {
+            // error check before unwrap
+            match clone.read(serial_buf.as_mut_slice()) {
+                Ok(size) => {
+                    let data_str = String::from_utf8_lossy(&serial_buf[..size]).to_string();
+                    
+                    // recordo only togged when path has been set
+                    if record_toggle_clone.load(Ordering::Relaxed) {
+                        println!("data in: {}", data_str);
+                        let file_op = file.lock().unwrap().take();
+                        
+                        match file_op {
+                            Some(mut file) => {
+                                println!("In: {}", data_str);
+                                file.write_all(b"boobs").expect("Could not write to file");
+                            }
+                            None => {
+                                
+                                println!("Didn't write");
+                            }
+                        }
                     }
-                    // todo emmit_all on error
-                    Err(ref e) if e.kind() == io::ErrorKind::TimedOut => (),
-                    Err(e) => eprintln!("{:?}", e),
+
+                    // emmit update to fronten
+                    app.emit_all("updateSerial", Payload { message: data_str })
+                        .unwrap();
                 }
+                // todo emmit_all on error
+                Err(ref e) if e.kind() == io::ErrorKind::TimedOut => (),
+                Err(e) => eprintln!("{:?}", e),
             }
-            println!("Terminating  thread.");
-        });
+        }
+        println!("Terminating  thread.");
+    });
 }
 
 pub fn write_serial<'a>(

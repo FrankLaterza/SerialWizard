@@ -2,19 +2,17 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 mod serial_wrapper;
 use serialport::{Error, Result, SerialPort};
-use std::fmt::format;
 use std::path::PathBuf;
-use std::sync::mpsc;
 use std::sync::{
     atomic::{AtomicBool, Ordering},
     Arc,
 };
-use std::sync::{Mutex, MutexGuard};
-use tauri::{App, CustomMenuItem, Manager, Menu, MenuItem, State, Submenu, WindowBuilder};
+
+use std::sync::Mutex;
+use tauri::{CustomMenuItem, Manager, Menu, State, Submenu};
 // todo move into wrapper
 use rfd::FileDialog;
 use std::fs::File;
-use std::io::Write;
 
 // todo move into Data struct
 pub struct PortItmes {
@@ -26,9 +24,11 @@ pub struct PortItmes {
 pub struct Data {
     port: Result<Box<dyn SerialPort>>,
     file_path: Option<PathBuf>,
+    file: Arc<Mutex<Option<File>>>,
     port_items: PortItmes,
     ending: String,
     serial_thread: Arc<AtomicBool>,
+    record_toggle: Arc<AtomicBool>,
 }
 
 pub struct AppData(Mutex<Data>);
@@ -48,8 +48,7 @@ fn handle_serial_connect(app: tauri::AppHandle) -> bool {
     let baud_rate_num = baud_rate.parse::<u32>().unwrap();
     let connected = state_gaurd.serial_thread.load(Ordering::Relaxed);
 
-    if (connected) {
-
+    if connected {
         // anounce killing the thread
         println!("killing thread");
         state_gaurd.serial_thread.store(false, Ordering::Relaxed);
@@ -87,13 +86,21 @@ fn handle_serial_connect(app: tauri::AppHandle) -> bool {
                 let serial_thread_clone = state_gaurd.serial_thread.clone();
                 // enable thread
                 serial_thread_clone.store(true, Ordering::Relaxed);
+                // get record toggle clone
+                let record_toggle_clone = state_gaurd.record_toggle.clone();
+                // get the file
+                let file_clone = state_gaurd.file.clone();
+
                 // clone app
                 let app_clone_thread = app.clone();
+
                 // use clone on thread
                 serial_wrapper::start_clone_thread(
                     app_clone_thread,
                     port_clone,
                     serial_thread_clone,
+                    record_toggle_clone,
+                    file_clone,
                 );
 
                 // update the menu
@@ -175,32 +182,58 @@ fn set_folder_path(state: State<AppData>) -> bool {
     return true;
 }
 
-fn start_record(state: State<AppData>) -> bool {
+fn handle_start_record(app: tauri::AppHandle) -> bool {
+    // get menu
+    let main_window = app.clone().get_window("main").unwrap();
+    let menu_handle = main_window.menu_handle();
+    // get state
+    let state = app.state::<AppData>();
     let mut state_gaurd = state.0.lock().unwrap();
-    return true;
-    // destroy the port by opending to nothing
-}
 
-fn save_record(state: State<AppData>) -> bool {
-    let mut state_gaurd = state.0.lock().unwrap();
+    // check state of recroding
+    match state_gaurd.record_toggle.load(Ordering::Relaxed) {
+        // if recording prompt to stop
+        true => {
+            // stop recording
+            println!("Stop recording");
+            state_gaurd.record_toggle.store(false, Ordering::Relaxed);
+            state_gaurd.file = Arc::new(Mutex::new(None.into()));
+            // set file to none
 
-    let dir = FileDialog::new().set_directory("/").pick_folder();
-    // print the path
-    match dir {
-        Some(path) => {
-            // add the file name to the path
-            let file_path = path.join("hello.txt"); // Use the selected path to create a file path
-                                                    // print path
-            println!("path set {}", file_path.to_string_lossy());
-            // set path
-            state_gaurd.file_path = Some(file_path);
-            // save to path
+            // update menu to next state
+            menu_handle
+                .get_item("start")
+                .set_title("Start")
+                .expect("Failed to change menu");
         }
-        None => {
-            return false;
+        false => {
+            match &state_gaurd.file_path {
+                Some(path) => {
+                    println!("Start recording");
+                    let file_path = path.join("SerialLog.txt");
+
+                    state_gaurd.file = Arc::new(Mutex::new(
+                        Some(File::create(file_path).expect("Could not create file")).into(),
+                    ));
+                    // start recoding on the file
+                    state_gaurd.record_toggle.store(true, Ordering::Relaxed);
+                }
+                None => {
+                    println!("File path not set");
+                    state_gaurd.record_toggle.store(false, Ordering::Relaxed);
+                }
+            }
+
+            menu_handle
+                .get_item("start")
+                .set_title("Stop")
+                .expect("Failed to change menu");
         }
     }
+
+    // set menu stop
     return true;
+    // destroy the port by opending to nothing
 }
 
 fn set_ending(app: tauri::AppHandle, ending: String) {
@@ -209,12 +242,12 @@ fn set_ending(app: tauri::AppHandle, ending: String) {
     // todo show input to user somehow
     println!("{}", ending);
 
-    if (ending == "\\n\\r") {
+    if ending == "\\n\\r" {
         let combo = format!("{}{}", '\n', '\r');
         state_gaurd.ending = combo;
-    } else if (ending == "\\n") {
+    } else if ending == "\\n" {
         state_gaurd.ending = String::from('\n');
-    } else if (ending == "\\r") {
+    } else if ending == "\\r" {
         state_gaurd.ending = String::from('\r');
     } else {
         state_gaurd.ending = String::from("");
@@ -274,26 +307,24 @@ fn create_port_items() -> Menu {
     for port in ports {
         menu = menu.add_item(CustomMenuItem::new(port.clone(), port));
     }
-    // add refresh button
-    menu = menu.add_item(CustomMenuItem::new("refresh", "Refresh"));
+    // todo add refresh button
+    // menu = menu.add_item(CustomMenuItem::new("refresh", "Refresh"));
 
     return menu;
 }
 
 // todo find better solution
-fn refresh_port_items(app: tauri::AppHandle){
+// fn refresh_port_items(app: tauri::AppHandle) {
+//     // get the existing menu
+//     let main_window = app.get_window("main").unwrap();
+//     let menu_handle = main_window.menu_handle();
 
-    // get the existing menu
-    let main_window = app.get_window("main").unwrap();
-    let menu_handle = main_window.menu_handle();
-    
-    let ports: Vec<String> = get_ports();
-    for port in ports {
-        // custom tauri function
-        // menu_handle.print_ids();
-    }
-
-}
+//     let ports: Vec<String> = get_ports();
+//     for port in ports {
+//         // custom tauri function
+//         // menu_handle.print_ids();
+//     }
+// }
 
 fn create_baud_items(baud_rates: Vec<&str>) -> Menu {
     let mut menu = Menu::new();
@@ -303,7 +334,6 @@ fn create_baud_items(baud_rates: Vec<&str>) -> Menu {
 
     return menu;
 }
-
 
 fn main() {
     let baud_rates: Vec<&str> = vec![
@@ -322,11 +352,13 @@ fn main() {
                     description: String::from(""),
                 }),
                 file_path: Some(PathBuf::from("/home")),
+                file: Arc::new(Mutex::new(None)),
                 port_items: PortItmes {
                     port_path: String::from(""),
-                    baud_rate: String::from(""),
+                    baud_rate: String::from("9800"),
                 },
                 ending: String::from(""),
+                record_toggle: Arc::new(AtomicBool::new(false)),
                 serial_thread: Arc::new(AtomicBool::new(false)),
             }),
         ))
@@ -342,8 +374,7 @@ fn main() {
                     "Record",
                     Menu::new()
                         .add_item(CustomMenuItem::new("set_directory", "Set Directory"))
-                        .add_item(CustomMenuItem::new("start", "Start"))
-                        .add_item(CustomMenuItem::new("save", "Save")),
+                        .add_item(CustomMenuItem::new("start", "Start")),
                 ))
                 .add_submenu(Submenu::new(
                     "Serial",
@@ -360,38 +391,32 @@ fn main() {
                 let app = event.window().app_handle();
                 let state = app.state::<AppData>();
                 // handle error
-                if (!set_folder_path(state)) {
+                if !set_folder_path(state) {
                     todo!();
                 };
             }
             "start" => {
                 let app = event.window().app_handle();
-                let state = app.state::<AppData>();
-                start_record(state);
-            }
-            "save" => {
-                let app = event.window().app_handle();
-                let state = app.state::<AppData>();
-                save_record(state);
+                handle_start_record(app);
             }
             "connect" => {
                 let app = event.window().app_handle();
                 handle_serial_connect(app);
             }
             "refresh" => {
-                let app = event.window().app_handle();
-                refresh_port_items(app);
+                // let app = event.window().app_handle();
+                // refresh_port_items(app);
             }
             _ => {
                 for end in &endings {
-                    if (end == &event.menu_item_id()) {
+                    if end == &event.menu_item_id() {
                         let app = event.window().app_handle();
                         set_ending(app, end.to_string());
                     }
                 }
 
                 for baud in &baud_rates {
-                    if (baud == &event.menu_item_id()) {
+                    if baud == &event.menu_item_id() {
                         let app = event.window().app_handle();
                         set_baud(app, baud.to_string());
                     }
@@ -400,7 +425,7 @@ fn main() {
                 // get the ports from the event
                 let ports = get_ports();
                 for port in ports {
-                    if (port == event.menu_item_id()) {
+                    if port == event.menu_item_id() {
                         let app = event.window().app_handle();
                         set_port(app, port);
                     }
