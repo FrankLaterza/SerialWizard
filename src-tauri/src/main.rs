@@ -289,7 +289,8 @@ fn refresh_port_items(app: tauri::AppHandle){
     
     let ports: Vec<String> = get_ports();
     for port in ports {
-        menu_handle.print_ids();
+        // custom tauri function
+        // menu_handle.print_ids();
     }
 
 }
