@@ -1,8 +1,12 @@
 use serialport::*;
 use std::io::Write;
+use std::sync::{
+    atomic::{AtomicBool, Ordering},
+    Arc,
+};
 use std::time::Duration;
 use std::{io, thread};
-use tauri::Manager;
+use tauri::{Manager, State};
 
 #[derive(Clone, serde::Serialize)]
 struct Payload {
@@ -21,46 +25,54 @@ pub fn list_ports() -> Vec<String> {
 }
 
 // try to init the serial and return the port
-pub fn init_port(app: tauri::AppHandle, port_name: &String, baud_rate: u32) -> Result<Box<dyn SerialPort>> {
+pub fn init_port(port_path: String, baud_rate: u32) -> Result<Box<dyn SerialPort>> {
     println!("init serial port");
 
-    let port = serialport::new(port_name.as_str(), baud_rate)
-        .timeout(Duration::from_millis(10))
-        .open()?;
+    // state_gaurd.thread_handler = Some(crate::ThreadHandler { sender: sender, receiver: receiver });
 
-    // clone port
-    let clone = port.try_clone().expect("Failed to clone");
-    start_listen_clone(app, clone);
+    let port = serialport::new(port_path, baud_rate)
+        .timeout(Duration::from_millis(10))
+        .open()
+        .expect("no port");
 
     // return port
     return Ok(port);
 }
 
 // clone the port and move it into the thread
-fn start_listen_clone(app: tauri::AppHandle, mut clone: Box<dyn SerialPort>) {
-
-    // try clone
+pub fn start_clone_thread(
+    app: tauri::AppHandle,
+    port_clone: Result<Box<dyn SerialPort>>,
+    serial_thread_clone: Arc<AtomicBool>,
+) {
+    // clone port
     println!("port cloned");
 
-    // serial buffer
+    // state_gaurd.thread_handler = Some(ThreadHandler { sender: sender });
     let mut serial_buf: Vec<u8> = vec![0; 32];
 
+    // todo check port clone success
+    let mut clone = port_clone.unwrap();
+
     // move clone into thread
-    thread::spawn(move || loop {
-        match clone.read(serial_buf.as_mut_slice()) {
-            Ok(size) => {
-                let data_str = String::from_utf8_lossy(&serial_buf[..size]).to_string();
-                print!("{}", data_str);
-                // emmit update to fronten
-                app.emit_all("updateSerial", Payload {
-                    message: data_str,
-                }).unwrap();
+    thread::spawn(move || {
+            while serial_thread_clone.load(Ordering::Relaxed) {
+                // error check before unwrap
+                match clone.read(serial_buf.as_mut_slice()) {
+                    Ok(size) => {
+                        let data_str = String::from_utf8_lossy(&serial_buf[..size]).to_string();
+                        print!("{}", data_str);
+                        // emmit update to fronten
+                        app.emit_all("updateSerial", Payload { message: data_str })
+                            .unwrap();
+                    }
+                    // todo emmit_all on error
+                    Err(ref e) if e.kind() == io::ErrorKind::TimedOut => (),
+                    Err(e) => eprintln!("{:?}", e),
+                }
             }
-            // todo emmit_all on error
-            Err(ref e) if e.kind() == io::ErrorKind::TimedOut => (),
-            Err(e) => eprintln!("{:?}", e),
-        }
-    });
+            println!("Terminating  thread.");
+        });
 }
 
 pub fn write_serial<'a>(

@@ -2,49 +2,116 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 mod serial_wrapper;
 use serialport::{Error, Result, SerialPort};
+use std::fmt::format;
 use std::path::PathBuf;
-use std::sync::Mutex;
-use tauri::{CustomMenuItem, Manager, Menu, MenuItem, State, Submenu, WindowBuilder};
-
+use std::sync::mpsc;
+use std::sync::{
+    atomic::{AtomicBool, Ordering},
+    Arc,
+};
+use std::sync::{Mutex, MutexGuard};
+use tauri::{App, CustomMenuItem, Manager, Menu, MenuItem, State, Submenu, WindowBuilder};
 // todo move into wrapper
 use rfd::FileDialog;
 use std::fs::File;
 use std::io::Write;
 
+// todo move into Data struct
+pub struct PortItmes {
+    port_path: String,
+    baud_rate: String,
+}
+
+// todo change Data name because its lame
 pub struct Data {
     port: Result<Box<dyn SerialPort>>,
     file_path: Option<PathBuf>,
+    port_items: PortItmes,
+    ending: String,
+    serial_thread: Arc<AtomicBool>,
 }
 
 pub struct AppData(Mutex<Data>);
 
-#[tauri::command]
-fn open_serial(
-    state: State<AppData>,
-    app: tauri::AppHandle,
-    port_name: String,
-    baud_rate: u32,
-) -> bool {
+fn handle_serial_connect(app: tauri::AppHandle) -> bool {
+    // clone the app
+    let app_clone = app.clone();
+
+    let state = app_clone.state::<AppData>();
+    // unclock gaurd
     let mut state_gaurd = state.0.lock().unwrap();
 
-    state_gaurd.port = serial_wrapper::init_port(app, &port_name, baud_rate);
+    // todo check before write
+    // get the port items
+    let port_path = state_gaurd.port_items.port_path.clone();
+    let baud_rate = state_gaurd.port_items.baud_rate.clone();
+    let baud_rate_num = baud_rate.parse::<u32>().unwrap();
+    let connected = state_gaurd.serial_thread.load(Ordering::Relaxed);
 
-    let port = &state_gaurd.port;
-    match port {
-        Ok(_port) => {
-            return true;
-        }
-        Err(_e) => {
-            return false;
+    if (connected) {
+        println!("killing thread");
+        state_gaurd.serial_thread.store(false, Ordering::Relaxed);
+
+        // set the port as an error
+        state_gaurd.port = Err(Error {
+            kind: serialport::ErrorKind::Unknown,
+            description: String::from(""),
+        });
+
+        // anounce killing the thread
+
+        // update lable menu
+        let port_path_clone = state_gaurd.port_items.port_path.clone();
+        let baud_rate_clone = state_gaurd.port_items.baud_rate.clone();
+        let lable_title: String = format!("Connect: {} | {}", port_path_clone, baud_rate_clone);
+        // update the menu
+        let main_window = app.get_window("main").unwrap();
+        let menu_handle = main_window.menu_handle();
+        // set the menu
+        menu_handle
+            .get_item("connect")
+            .set_title(lable_title)
+            .expect("Failed to change menu");
+        return true;
+    } else {
+        // start the port
+        let port = serial_wrapper::init_port(port_path, baud_rate_num);
+        // match on success
+        match port {
+            Ok(port) => {
+                // try clone port
+                let port_clone = port.try_clone();
+                // set the port
+                state_gaurd.port = Ok(port);
+                // clone the thread handle (copys a refrence)
+                let serial_thread_clone = state_gaurd.serial_thread.clone();
+                // enable thread
+                serial_thread_clone.store(true, Ordering::Relaxed);
+                // clone app
+                let app_clone_thread = app.clone();
+                // use clone on thread
+                serial_wrapper::start_clone_thread(
+                    app_clone_thread,
+                    port_clone,
+                    serial_thread_clone,
+                );
+
+                // update the menu
+                let main_window = app.get_window("main").unwrap();
+                let menu_handle = main_window.menu_handle();
+                // set the menu
+                menu_handle
+                    .get_item("connect")
+                    .set_title("Disconnect")
+                    .expect("Failed to change menu");
+
+                return true;
+            }
+            Err(_e) => {
+                return false;
+            }
         }
     }
-}
-
-#[tauri::command]
-fn close_port(state: State<AppData>) {
-    let state_guard = state.0.lock().unwrap();
-    // ... use the state_guard as needed
-    std::mem::drop(state_guard); // calls the Drop implementation of Data
 }
 
 #[tauri::command]
@@ -55,9 +122,9 @@ fn get_ports() -> Vec<String> {
 #[tauri::command]
 fn send_serial(state: State<AppData>, input: String) -> bool {
     let mut state_gaurd = state.0.lock().unwrap();
-    // input.push('\r');
     println!("writng string: {}", input);
-    let write = serial_wrapper::write_serial(&mut state_gaurd.port, input.as_str());
+    let input_format = format!("{}{}", input, state_gaurd.ending);
+    let write = serial_wrapper::write_serial(&mut state_gaurd.port, input_format.as_str());
     match write {
         Ok(_) => {
             println!("write successful");
@@ -87,7 +154,6 @@ async fn make_window(handle: tauri::AppHandle) {
         .unwrap();
 }
 
-#[tauri::command]
 fn set_folder_path(state: State<AppData>) -> bool {
     let mut state_gaurd = state.0.lock().unwrap();
 
@@ -109,15 +175,13 @@ fn set_folder_path(state: State<AppData>) -> bool {
     return true;
 }
 
-#[tauri::command]
 fn start_record(state: State<AppData>) -> bool {
     let mut state_gaurd = state.0.lock().unwrap();
     return true;
     // destroy the port by opending to nothing
 }
 
-#[tauri::command]
-fn stop_record(state: State<AppData>) -> bool {
+fn save_record(state: State<AppData>) -> bool {
     let mut state_gaurd = state.0.lock().unwrap();
 
     let dir = FileDialog::new().set_directory("/").pick_folder();
@@ -139,10 +203,74 @@ fn stop_record(state: State<AppData>) -> bool {
     return true;
 }
 
+fn set_ending(app_handle: tauri::AppHandle, ending: String) {
+    let state = app_handle.state::<AppData>();
+    let mut state_gaurd = state.0.lock().unwrap();
+    // todo show input to user somehow
+    println!("{}", ending);
+
+    if (ending == "\\n\\r") {
+        let combo = format!("{}{}", '\n', '\r');
+        state_gaurd.ending = combo;
+    } else if (ending == "\\n") {
+        state_gaurd.ending = String::from('\n');
+    } else if (ending == "\\r") {
+        state_gaurd.ending = String::from('\r');
+    } else {
+        state_gaurd.ending = String::from("");
+    }
+}
+
+fn set_port(app_handle: tauri::AppHandle, port_path: String) {
+    let state = app_handle.state::<AppData>();
+    let mut state_gaurd = state.0.lock().unwrap();
+    state_gaurd.port_items.port_path = port_path;
+
+    // update lable menu
+    let port_path_clone = state_gaurd.port_items.port_path.clone();
+    let baud_rate_clone = state_gaurd.port_items.baud_rate.clone();
+    let lable_title: String = format!("Connect: {} | {}", port_path_clone, baud_rate_clone);
+    // update the menu
+    let main_window = app_handle.get_window("main").unwrap();
+    let menu_handle = main_window.menu_handle();
+    // set the menu
+    menu_handle
+        .get_item("connect")
+        .set_title(lable_title)
+        .expect("Failed to change menu");
+}
+
+fn set_baud(app_handle: tauri::AppHandle, baud_rate: String) {
+    let state = app_handle.state::<AppData>();
+    let mut state_gaurd = state.0.lock().unwrap();
+    state_gaurd.port_items.baud_rate = baud_rate;
+
+    // update lable menu
+    let port_path_clone = state_gaurd.port_items.port_path.clone();
+    let baud_rate_clone = state_gaurd.port_items.baud_rate.clone();
+    let lable_title: String = format!("Connect: {} | {}", port_path_clone, baud_rate_clone);
+    // update the menu
+    let main_window = app_handle.get_window("main").unwrap();
+    let menu_handle = main_window.menu_handle();
+    // set the menu
+    menu_handle
+        .get_item("connect")
+        .set_title(lable_title)
+        .expect("Failed to change menu");
+}
+
+fn create_ending_items(endings: Vec<&str>) -> Menu {
+    let mut menu = Menu::new();
+    for end in endings {
+        menu = menu.add_item(CustomMenuItem::new(end, end));
+    }
+
+    return menu;
+}
+
 fn create_port_items() -> Menu {
     let ports: Vec<String> = get_ports();
     let mut menu = Menu::new();
-
     for port in ports {
         menu = menu.add_item(CustomMenuItem::new(port.clone(), port));
     }
@@ -150,29 +278,22 @@ fn create_port_items() -> Menu {
     return menu;
 }
 
-fn create_baud_items() -> Menu {
-    let baud_rates: Vec<&str> = vec![
-        "300", "1200", "2400", "4800", "9600", "19200", "38400", "57600", "74880", "115200",
-        "230400", "250000", "500000", "1000000", "2000000",
-    ];
-
+fn create_baud_items(baud_rates: Vec<&str>) -> Menu {
     let mut menu = Menu::new();
-
     for baud in baud_rates {
-        menu = menu.add_item(CustomMenuItem::new(baud.clone(), baud));
+        menu = menu.add_item(CustomMenuItem::new(baud, baud));
     }
 
     return menu;
 }
 
-#[tauri::command]
-fn print_file_path(state: State<AppData>){
-    let state_gaurd = state.0.lock().unwrap();
-    let path = state_gaurd.file_path.as_ref().expect("path not set");
-    println!("{}",path.to_string_lossy());
-}
-
 fn main() {
+    let baud_rates: Vec<&str> = vec![
+        "300", "1200", "2400", "4800", "9600", "19200", "38400", "57600", "74880", "115200",
+        "230400", "250000", "500000", "1000000", "2000000",
+    ];
+    let endings: Vec<&str> = vec!["\\n\\r", "\\n", "\\r", "None"];
+
     // tauri builder
     tauri::Builder::default()
         .manage(AppData(
@@ -183,43 +304,86 @@ fn main() {
                     description: String::from(""),
                 }),
                 file_path: Some(PathBuf::from("/home")),
+                port_items: PortItmes {
+                    port_path: String::from(""),
+                    baud_rate: String::from(""),
+                },
+                ending: String::from(""),
+                serial_thread: Arc::new(AtomicBool::new(false)),
             }),
         ))
         .invoke_handler(tauri::generate_handler![
             greet,
-            open_serial,
             get_ports,
             send_serial,
             make_window,
-            close_port,
-            set_folder_path,
-            print_file_path
         ])
         .menu(
             Menu::new()
-                //.add_item(CustomMenuItem::new("file", "File"))
                 .add_submenu(Submenu::new(
-                    "File",
-                    Menu::new().add_item(CustomMenuItem::new("open", "Open")),
+                    "Record",
+                    Menu::new()
+                        .add_item(CustomMenuItem::new("set_directory", "Set Directory"))
+                        .add_item(CustomMenuItem::new("start", "Start"))
+                        .add_item(CustomMenuItem::new("save", "Save")),
                 ))
                 .add_submenu(Submenu::new(
-                    "Tools",
+                    "Serial",
                     Menu::new()
+                        // todo add changing menu buttons
+                        .add_item(CustomMenuItem::new("connect", "Connect: None"))
+                        .add_submenu(Submenu::new("Ending", create_ending_items(endings.clone())))
                         .add_submenu(Submenu::new("Ports", create_port_items()))
-                        .add_submenu(Submenu::new("Bauds", create_baud_items())),
+                        .add_submenu(Submenu::new("Bauds", create_baud_items(baud_rates.clone()))),
                 )),
         )
-        .on_menu_event(|event| match event.menu_item_id() {
-            "open" => {
+        .on_menu_event(move |event| match event.menu_item_id() {
+            "set_directory" => {
                 let app = event.window().app_handle();
                 let state = app.state::<AppData>();
-                let mut gaurd = state.0.lock().unwrap();
-                gaurd.file_path = Some(PathBuf::from("/dir"));
+                // handle error
+                if (!set_folder_path(state)) {
+                    todo!();
+                };
             }
-            "close" => {
+            "start" => {
+                let app_handle = event.window().app_handle();
+                let state = app_handle.state::<AppData>();
+                start_record(state);
+            }
+            "save" => {
+                let app_handle = event.window().app_handle();
+                let state = app_handle.state::<AppData>();
+                save_record(state);
+            }
+            "connect" => {
+                let app_handle = event.window().app_handle();
+                handle_serial_connect(app_handle);
+            }
+            _ => {
+                for end in &endings {
+                    if (end == &event.menu_item_id()) {
+                        let app_handle = event.window().app_handle();
+                        set_ending(app_handle, end.to_string());
+                    }
+                }
 
+                for baud in &baud_rates {
+                    if (baud == &event.menu_item_id()) {
+                        let app_handle = event.window().app_handle();
+                        set_baud(app_handle, baud.to_string());
+                    }
+                }
+
+                // get the ports from the event
+                let ports = get_ports();
+                for port in ports {
+                    if (port == event.menu_item_id()) {
+                        let app_handle = event.window().app_handle();
+                        set_port(app_handle, port);
+                    }
+                }
             }
-            _ => {}
         })
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

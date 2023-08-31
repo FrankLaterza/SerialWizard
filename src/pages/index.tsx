@@ -16,7 +16,6 @@ const inter = Inter({subsets: ["latin"]});
 export default function Home() {
     const [lines, setLines] = useState<String[]>([]);
     const [inputValueText, setInputValueText] = useState("");
-
     const [messageBox, setMessageBox] = useState<String>("");
 
     function getColorByType(type: String) {
@@ -45,6 +44,7 @@ export default function Home() {
     function writeNewLines(str: string) {
         setMessageBox((messageBox) => messageBox.concat(str));
     }
+
     const handleInputChangeTextBox = (event: any) => {
         setInputValueText(event.target.value);
     };
@@ -136,38 +136,6 @@ export default function Home() {
         );
     }
 
-    const [isConnected, setIsConnected] = useState(false);
-
-    async function handleConnect() {
-        // get baud from set<baud>
-        const baud = parseInt(Array.from(selectedBaud).join(""));
-        // get string from set<string>
-        const port = Array.from(selectedPort).join("");
-        // open port
-        let data = await invoke("open_serial", {
-            portName: port,
-            baudRate: baud,
-        });
-        console.log(data);
-        if (!data) {
-            writeNewLines("\n(Serial console) Failed to start serial port\n");
-            setIsConnected(false);
-        } else {
-            writeNewLines("\n(Serial console) Connection successful\n");
-            setIsConnected(true);
-        }
-    }
-
-    // todo fix
-    async function handleDisconnect() {
-        console.log(isConnected);
-        setIsConnected(false);
-        // open nothing
-        await invoke("open_serial", {portName: "", baudRate: 0});
-        writeNewLines("\n(Serial console) Disconnection successful\n");
-        return;
-    }
-
     const [delimiter, setDelimiter] = useState("\n");
 
     async function handleSend(event: any) {
@@ -175,9 +143,7 @@ export default function Home() {
         // writeNewLines(inputValueText + "\n");
         setInputValueText("");
 
-        let data = await invoke("send_serial", {
-            input: inputValueText + getEnding(),
-        });
+        let data = await invoke("send_serial", {input: inputValueText});
         if (!data) {
             writeNewLines("\n(Serial console) Failed to send serial\n");
         }
@@ -210,7 +176,7 @@ export default function Home() {
         setInputValuePower("");
         setInputValueStop("");
         const newLines: any = [...lines, str];
-        let data = invoke("send_serial", {input: str + getEnding()});
+        let data = invoke("send_serial", {input: str});
         if (!data) {
             writeNewLines("\n(Serial console) Failed to send serial\n");
         }
@@ -218,73 +184,6 @@ export default function Home() {
     // makes a window from rust
     async function hanndleSetup() {
         await invoke("make_window", {});
-    }
-
-    type PortItem = {
-        name: string;
-        // add other properties here if necessary
-    };
-
-    const [selectedPort, setSelectedPort] = useState<any>(new Set(["select"]));
-
-    const [portItems, setPortItems] = useState<PortItem[]>([
-        {name: "no ports"},
-    ]);
-
-    async function handleGetPorts() {
-        // gets the ports
-        let data: any = await invoke("get_ports", {}); // fix type any
-        if (data.length !== 0) {
-            const portItems = data.map((portName: any) => ({name: portName}));
-            setPortItems(portItems);
-        }
-        // setPortItems(data);
-        // console.log(portItems);
-    }
-
-    const [selectedBaud, setSelectedBaud] = useState<any>(new Set(["9600"]));
-
-    const baudItems = [
-        {name: "300"},
-        {name: "1200"},
-        {name: "2400"},
-        {name: "4800"},
-        {name: "9600"},
-        {name: "19200"},
-        {name: "38400"},
-        {name: "57600"},
-        {name: "74880"},
-        {name: "115200"},
-        {name: "230400"},
-        {name: "250000"},
-        {name: "500000"},
-        {name: "1000000"},
-        {name: "2000000"},
-    ];
-
-    const [ending, setEnding] = useState<any>(new Set(["\\n\\r"]));
-
-    const endingItems = [
-        {name: "\\n\\r"},
-        {name: "\\n"},
-        {name: "\\r"},
-        {name: "none"},
-    ];
-
-    function getEnding() {
-        console.log(
-            "ending: " + endingItems.find((item) => ending.has(item.name))?.name
-        );
-        switch (true) {
-            case ending.has("\\n\\r"):
-                return "\n\r";
-            case ending.has("\\n"):
-                return "\n";
-            case ending.has("\\r"):
-                return "\r";
-            case ending.has("none"):
-                return "";
-        }
     }
 
     useEffect(() => {
@@ -312,8 +211,6 @@ export default function Home() {
             <div className="flex flex-row px-10 justify-center items-center w-full h-100 py-4 text-xl text-center bg-gray-900">
                 <div className="flex justify-start w-1/3 gap-10">
                     <DropDownButton />
-                    <RecordButton />
-                    <FolderButton />
                 </div>
                 <div className="flex justify-center w-1/3 text-center">
                     Serial Monitor
@@ -439,109 +336,6 @@ export default function Home() {
                             className="color-white bg-blue-800 h-full w-14 p-3"
                         />
                     </form>
-                </div>
-            </div>
-            {/* bottom buttons */}
-            <div className="w-full h-[10%] flex justify-around items-center flex-row text-xl text-center bg-gray-900 ">
-                {isConnected ? (
-                    <button
-                        onClick={handleDisconnect}
-                        className="border border-gray-400 bg-gray-600 hover:bg-gray-400 hover:text-white text-gray-200 text-sm lg:text-base font-bold py-2 px-4 rounded-lg"
-                    >
-                        Disonnect
-                    </button>
-                ) : (
-                    <button
-                        onClick={handleConnect}
-                        className="border border-gray-400 bg-gray-600 hover:bg-gray-400 hover:text-white text-gray-200 text-sm lg:text-base font-bold py-2 px-4 rounded-lg"
-                    >
-                        Connect
-                    </button>
-                )}
-
-                {/* ending dropdown */}
-                <div className="flex flex-row justify-center items-center gap-2 text-gray-200 text-sm lg:text-base font-bold rounded-lg">
-                    Ending:
-                    <Dropdown disableAnimation>
-                        <Dropdown.Button flat color="primary">
-                            {ending}
-                        </Dropdown.Button>
-                        <Dropdown.Menu
-                            aria-label="Multiple selection actions"
-                            color="secondary"
-                            disallowEmptySelection
-                            selectionMode="single"
-                            selectedKeys={ending}
-                            items={endingItems}
-                            onSelectionChange={setEnding}
-                        >
-                            {endingItems.map((endingItems) => (
-                                <Dropdown.Item
-                                    key={endingItems.name}
-                                    color={"default"}
-                                >
-                                    {endingItems.name}
-                                </Dropdown.Item>
-                            ))}
-                        </Dropdown.Menu>
-                    </Dropdown>
-                </div>
-                {/* baud dropdown */}
-                <div className="flex flex-row justify-center items-center gap-2 text-gray-200 text-sm lg:text-base font-bold rounded-lg">
-                    Buad:
-                    <Dropdown disableAnimation>
-                        <Dropdown.Button flat color="primary">
-                            {selectedBaud}
-                        </Dropdown.Button>
-                        <Dropdown.Menu
-                            aria-label="Multiple selection actions"
-                            color="secondary"
-                            disallowEmptySelection
-                            selectionMode="single"
-                            selectedKeys={selectedBaud}
-                            items={baudItems}
-                            onSelectionChange={setSelectedBaud}
-                        >
-                            {baudItems.map((baudItems) => (
-                                <Dropdown.Item
-                                    key={baudItems.name}
-                                    color={"default"}
-                                >
-                                    {baudItems.name}
-                                </Dropdown.Item>
-                            ))}
-                        </Dropdown.Menu>
-                    </Dropdown>
-                </div>
-                <div className="flex flex-row justify-center items-center gap-2 text-gray-200 text-sm lg:text-base font-bold rounded-lg">
-                    Port:
-                    <Dropdown disableAnimation>
-                        <Dropdown.Button
-                            flat
-                            color="primary"
-                            onPress={handleGetPorts}
-                        >
-                            {selectedPort}
-                        </Dropdown.Button>
-                        <Dropdown.Menu
-                            aria-label="Multiple selection actions"
-                            color="secondary"
-                            disallowEmptySelection
-                            selectionMode="single"
-                            selectedKeys={selectedPort}
-                            items={portItems}
-                            onSelectionChange={setSelectedPort}
-                        >
-                            {portItems.map((portItem) => (
-                                <Dropdown.Item
-                                    key={portItem.name}
-                                    color="default"
-                                >
-                                    {portItem.name}
-                                </Dropdown.Item>
-                            ))}
-                        </Dropdown.Menu>
-                    </Dropdown>
                 </div>
             </div>
         </main>
