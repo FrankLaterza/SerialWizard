@@ -6,7 +6,7 @@ use std::sync::{
 };
 use std::time::Duration;
 use std::{io, thread};
-use tauri::{Manager, State};
+use tauri::Manager;
 
 #[derive(Clone, serde::Serialize)]
 struct Payload {
@@ -105,9 +105,54 @@ pub fn start_record_on_port(
                     Err(ref e) if e.kind() == io::ErrorKind::TimedOut => (),
                     Err(e) => eprintln!("{:?}", e),
                 }
+                // todo emmit_all on error
+                Err(ref e) if e.kind() == io::ErrorKind::TimedOut => (),
+                Err(e) => eprintln!("{:?}", e),
             }
-            println!("Terminating  thread.");
-        });
+        }
+        println!("Terminating  thread.");
+    });
+}
+
+// clone the port and move it into the thread
+pub fn start_clone_thread_file(
+    app: tauri::AppHandle,
+    port_clone: Result<Box<dyn SerialPort>>,
+    serial_thread_clone: Arc<AtomicBool>,
+    file: crate::File,
+) {
+    // clone port
+    println!("port cloned");
+
+    // state_gaurd.thread_handler = Some(ThreadHandler { sender: sender });
+    let mut serial_buf: Vec<u8> = vec![0; 32];
+
+    // todo check port clone success
+    let mut clone = port_clone.unwrap();
+    // move clone into thread
+    thread::spawn(move || {
+        // unclock file
+        // loop through all data
+        while serial_thread_clone.load(Ordering::Relaxed) {
+            // error check before unwrap
+            match clone.read(serial_buf.as_mut_slice()) {
+                Ok(size) => {
+                    let data_str = String::from_utf8_lossy(&serial_buf[..size]).to_string();
+
+                    println!("data in: {}", data_str);
+                    file.write_all(data_str.as_bytes()).expect("Could not write to file");
+
+                    // emmit update to fronten
+                    app.emit_all("updateSerial", Payload { message: data_str })
+                        .unwrap();
+                }
+                // todo emmit_all on error
+                Err(ref e) if e.kind() == io::ErrorKind::TimedOut => (),
+                Err(e) => eprintln!("{:?}", e),
+            }
+        }
+        println!("Terminating  thread.");
+    });
 }
 
 
