@@ -1,4 +1,4 @@
-use serialport::*;
+git use serialport::*;
 use std::io::Write;
 use std::sync::{
     atomic::{AtomicBool, Ordering},
@@ -42,8 +42,8 @@ pub fn init_port(port_path: String, baud_rate: u32) -> Result<Box<dyn SerialPort
 // clone the port and move it into the thread
 pub fn start_clone_thread(
     app: tauri::AppHandle,
-    port_clone: Result<Box<dyn SerialPort>>,
-    serial_thread_clone: Arc<AtomicBool>,
+    port_clone: Box<dyn SerialPort>,
+    is_thead_open: Arc<AtomicBool>,
 ) {
     // clone port
     println!("port cloned");
@@ -51,14 +51,11 @@ pub fn start_clone_thread(
     // state_gaurd.thread_handler = Some(ThreadHandler { sender: sender });
     let mut serial_buf: Vec<u8> = vec![0; 32];
 
-    // todo check port clone success
-    let mut clone = port_clone.unwrap();
-
     // move clone into thread
     thread::spawn(move || {
-            while serial_thread_clone.load(Ordering::Relaxed) {
+            while is_thead_open.load(Ordering::Relaxed) {
                 // error check before unwrap
-                match clone.read(serial_buf.as_mut_slice()) {
+                match port_clone.read(serial_buf.as_mut_slice()) {
                     Ok(size) => {
                         let data_str = String::from_utf8_lossy(&serial_buf[..size]).to_string();
                         print!("{}", data_str);
@@ -74,6 +71,45 @@ pub fn start_clone_thread(
             println!("Terminating  thread.");
         });
 }
+
+// clone the port and move it into the thread
+pub fn start_record_on_port(
+    app: tauri::AppHandle,
+    port_clone: Box<dyn SerialPort>,
+    is_thead_open: Arc<AtomicBool>,
+) {
+    // clone port
+    println!("port cloned");
+
+    // state_gaurd.thread_handler = Some(ThreadHandler { sender: sender });
+    let mut serial_buf: Vec<u8> = vec![0; 32];
+
+    // move clone into thread
+    thread::spawn(move || {
+            while is_thead_open.load(Ordering::Relaxed) {
+                // error check before unwrap
+                match port_clone.read(serial_buf.as_mut_slice()) {
+                    Ok(size) => {
+                        let data_str = String::from_utf8_lossy(&serial_buf[..size]).to_string();
+                        print!("{}", data_str);
+                        // emmit update to fronten
+                        app.emit_all("updateSerial", Payload { message: data_str })
+                            .unwrap();
+
+
+                        // record on file
+
+
+                    }
+                    // todo emmit_all on error
+                    Err(ref e) if e.kind() == io::ErrorKind::TimedOut => (),
+                    Err(e) => eprintln!("{:?}", e),
+                }
+            }
+            println!("Terminating  thread.");
+        });
+}
+
 
 pub fn write_serial<'a>(
     port: &'a mut Result<Box<dyn SerialPort>>,
