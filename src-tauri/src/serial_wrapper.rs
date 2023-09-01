@@ -44,8 +44,6 @@ pub fn start_clone_thread(
     app: tauri::AppHandle,
     port_clone: Result<Box<dyn SerialPort>>,
     serial_thread_clone: Arc<AtomicBool>,
-    record_toggle_clone: Arc<AtomicBool>,
-    file: Arc<crate::Mutex<Option<crate::File>>>,
 ) {
     // clone port
     println!("port cloned");
@@ -65,23 +63,46 @@ pub fn start_clone_thread(
             match clone.read(serial_buf.as_mut_slice()) {
                 Ok(size) => {
                     let data_str = String::from_utf8_lossy(&serial_buf[..size]).to_string();
-                    
-                    // recordo only togged when path has been set
-                    if record_toggle_clone.load(Ordering::Relaxed) {
-                        println!("data in: {}", data_str);
-                        let file_op = file.lock().unwrap().take();
-                        
-                        match file_op {
-                            Some(mut file) => {
-                                println!("In: {}", data_str);
-                                file.write_all(b"boobs").expect("Could not write to file");
-                            }
-                            None => {
-                                
-                                println!("Didn't write");
-                            }
-                        }
-                    }
+                    // emmit update to fronten
+                    app.emit_all("updateSerial", Payload { message: data_str })
+                        .unwrap();
+                }
+                // todo emmit_all on error
+                Err(ref e) if e.kind() == io::ErrorKind::TimedOut => (),
+                Err(e) => eprintln!("{:?}", e),
+            }
+        }
+        println!("Terminating  thread.");
+    });
+}
+
+// clone the port and move it into the thread
+pub fn start_clone_thread_file(
+    app: tauri::AppHandle,
+    port_clone: Result<Box<dyn SerialPort>>,
+    serial_thread_clone: Arc<AtomicBool>,
+    file: crate::File,
+) {
+    // clone port
+    println!("port cloned");
+
+    // state_gaurd.thread_handler = Some(ThreadHandler { sender: sender });
+    let mut serial_buf: Vec<u8> = vec![0; 32];
+
+    // todo check port clone success
+    let mut clone = port_clone.unwrap();
+    // move clone into thread
+    thread::spawn(move || {
+        // unclock file
+        // loop through all data
+        while serial_thread_clone.load(Ordering::Relaxed) {
+            // error check before unwrap
+            match clone.read(serial_buf.as_mut_slice()) {
+                Ok(size) => {
+                    let data_str = String::from_utf8_lossy(&serial_buf[..size]).to_string();
+
+                    println!("data in: {}", data_str);
+                    file.write_all(data_str.as_bytes()).expect("Could not write to file");
 
                     // emmit update to fronten
                     app.emit_all("updateSerial", Payload { message: data_str })

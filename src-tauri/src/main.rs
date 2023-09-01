@@ -24,7 +24,7 @@ pub struct PortItmes {
 pub struct Data {
     port: Result<Box<dyn SerialPort>>,
     file_path: Option<PathBuf>,
-    file: Arc<Mutex<Option<File>>>,
+    file: Option<File>,
     port_items: PortItmes,
     ending: String,
     serial_thread: Arc<AtomicBool>,
@@ -86,11 +86,6 @@ fn handle_serial_connect(app: tauri::AppHandle) -> bool {
                 let serial_thread_clone = state_gaurd.serial_thread.clone();
                 // enable thread
                 serial_thread_clone.store(true, Ordering::Relaxed);
-                // get record toggle clone
-                let record_toggle_clone = state_gaurd.record_toggle.clone();
-                // get the file
-                let file_clone = state_gaurd.file.clone();
-
                 // clone app
                 let app_clone_thread = app.clone();
 
@@ -99,8 +94,6 @@ fn handle_serial_connect(app: tauri::AppHandle) -> bool {
                     app_clone_thread,
                     port_clone,
                     serial_thread_clone,
-                    record_toggle_clone,
-                    file_clone,
                 );
 
                 // update the menu
@@ -197,8 +190,17 @@ fn handle_start_record(app: tauri::AppHandle) -> bool {
             // stop recording
             println!("Stop recording");
             state_gaurd.record_toggle.store(false, Ordering::Relaxed);
-            state_gaurd.file = Arc::new(Mutex::new(None.into()));
             // set file to none
+            state_gaurd.file = None;
+
+            // kill thread
+            state_gaurd.serial_thread.store(false, Ordering::Relaxed);
+
+            // set the port as an error
+            state_gaurd.port = Err(Error {
+                kind: serialport::ErrorKind::Unknown,
+                description: String::from(""),
+            });
 
             // update menu to next state
             menu_handle
@@ -210,13 +212,30 @@ fn handle_start_record(app: tauri::AppHandle) -> bool {
             match &state_gaurd.file_path {
                 Some(path) => {
                     println!("Start recording");
-                    let file_path = path.join("SerialLog.txt");
+                    // kill old thread
+                    state_gaurd.serial_thread.store(false, Ordering::Relaxed);
+                    // get record toggle clone
+                    let record_toggle_clone = state_gaurd.record_toggle.clone();
+                    // start new thread
+                    state_gaurd.serial_thread.store(true, Ordering::Relaxed);
+                    // try clone port
+                    let port_clone = port.try_clone();
+                    // set the port
+                    state_gaurd.port = Ok(port);git 
+                    // clone the thread handle (copys a refrence)
+                    let serial_thread_clone = state_gaurd.serial_thread.clone();
+                    // enable thread
+                    serial_thread_clone.store(true, Ordering::Relaxed);
+                    // clone app
+                    let app_clone_thread = app.clone();
 
-                    state_gaurd.file = Arc::new(Mutex::new(
-                        Some(File::create(file_path).expect("Could not create file")).into(),
-                    ));
-                    // start recoding on the file
-                    state_gaurd.record_toggle.store(true, Ordering::Relaxed);
+                    // use clone on thread
+                    serial_wrapper::start_clone_thread_clone_file(
+                        app_clone_thread,
+                        port_clone,
+                        serial_thread_clone,
+                        file,
+                    );
                 }
                 None => {
                     println!("File path not set");
@@ -352,7 +371,7 @@ fn main() {
                     description: String::from(""),
                 }),
                 file_path: Some(PathBuf::from("/home")),
-                file: Arc::new(Mutex::new(None)),
+                file: None,
                 port_items: PortItmes {
                     port_path: String::from(""),
                     baud_rate: String::from("9800"),
