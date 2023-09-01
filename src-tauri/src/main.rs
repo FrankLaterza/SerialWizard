@@ -21,14 +21,16 @@ pub struct PortItmes {
 }
 
 // todo change Data name because its lame
+// todo group data into sub structs or impl.
 pub struct Data {
+    // todo change to option
     port: Result<Box<dyn SerialPort>>,
     file_path: Option<PathBuf>,
     file: Option<File>,
     port_items: PortItmes,
     ending: String,
-    serial_thread: Arc<AtomicBool>,
-    record_toggle: Arc<AtomicBool>,
+    is_thread_open: Arc<AtomicBool>,
+    // todo track currect menu itmes
 }
 
 pub struct AppData(Mutex<Data>);
@@ -41,17 +43,20 @@ fn handle_serial_connect(app: tauri::AppHandle) -> bool {
     // unclock gaurd
     let mut state_gaurd = state.0.lock().unwrap();
 
-    // todo check before write
-    // get the port items
+    // clone state gaurd data
     let port_path = state_gaurd.port_items.port_path.clone();
     let baud_rate = state_gaurd.port_items.baud_rate.clone();
-    let baud_rate_num = baud_rate.parse::<u32>().unwrap();
-    let connected = state_gaurd.serial_thread.load(Ordering::Relaxed);
+  
+    // todo check before write
+    // get the port items
+    let is_thread_open = state_gaurd.is_thread_open.load(Ordering::Relaxed);
 
-    if connected {
+    if (is_thread_open) {
+
         // anounce killing the thread
         println!("killing thread");
-        state_gaurd.serial_thread.store(false, Ordering::Relaxed);
+        // kill thread. todo confim thead kill
+        state_gaurd.is_thread_open.store(false, Ordering::Relaxed);
 
         // set the port as an error
         state_gaurd.port = Err(Error {
@@ -60,9 +65,7 @@ fn handle_serial_connect(app: tauri::AppHandle) -> bool {
         });
 
         // update lable menu
-        let port_path_clone = state_gaurd.port_items.port_path.clone();
-        let baud_rate_clone = state_gaurd.port_items.baud_rate.clone();
-        let lable_title: String = format!("Connect: {} | {}", port_path_clone, baud_rate_clone);
+        let lable_title: String = format!("Connect: {} | {}", port_path, baud_rate);
         // update the menu
         let main_window = app.get_window("main").unwrap();
         let menu_handle = main_window.menu_handle();
@@ -78,22 +81,21 @@ fn handle_serial_connect(app: tauri::AppHandle) -> bool {
         // match on success
         match port {
             Ok(port) => {
+                // convert baud to num
+                let baud_rate_num = baud_rate.parse::<u32>().unwrap();
                 // try clone port
-                let port_clone = port.try_clone();
+                let port_clone = port.try_clone().unwrap();
                 // set the port
                 state_gaurd.port = Ok(port);
                 // clone the thread handle (copys a refrence)
-                let serial_thread_clone = state_gaurd.serial_thread.clone();
+                let is_thread_opened = state_gaurd.is_thread_open.clone();
                 // enable thread
-                serial_thread_clone.store(true, Ordering::Relaxed);
-                // clone app
-                let app_clone_thread = app.clone();
-
+                is_thread_opened.store(true, Ordering::Relaxed);
                 // use clone on thread
                 serial_wrapper::start_clone_thread(
-                    app_clone_thread,
+                    app.clone(),
                     port_clone,
-                    serial_thread_clone,
+                    is_thread_opened,
                 );
 
                 // update the menu
@@ -108,11 +110,58 @@ fn handle_serial_connect(app: tauri::AppHandle) -> bool {
                 return true;
             }
             Err(_e) => {
+                // todo make menu show error
+                // port could not be created
+
+                // couldn't open make thread false 
+                state_gaurd.is_thread_opened.store(true, Ordering::Relaxed);
                 return false;
             }
         }
     }
 }
+
+// kills current thread and starts recording
+fn handle_start_record(app: tauri::AppHandle) -> bool {
+    // clone the app
+    let app_clone = app.clone();
+
+    let state = app_clone.state::<AppData>();
+    // unclock gaurd
+    let mut state_gaurd = state.0.lock().unwrap();
+
+    // clone state gaurd data
+    let port_path = state_gaurd.port_items.port_path.clone();
+    let baud_rate = state_gaurd.port_items.baud_rate.clone();
+
+    // todo check before write
+    // get the port items
+    let is_thread_open = state_gaurd.is_thread_open.load(Ordering::Relaxed);
+
+    // if there is a thread open (must be a valid port)
+    if (is_thread_open) {
+        // anounce killing the thread
+        println!("killing thread");
+        // kill thread. todo confim thead kill
+        state_gaurd.is_thread_open.store(false, Ordering::Relaxed);
+        // get the opened port
+        let port_clone = state_gaurd.port.unwrap();
+        // open thread
+        state_gaurd.is_thread_open.store(false, Ordering::Relaxed);
+        // start serial on port
+        serial_wrapper::start_record_on_port(
+            app.clone(),
+            port_clone,
+            is_thread_opened,
+        );
+
+
+    } else {
+        // announce error
+        // must be connected to serial port to start recording
+    }
+}
+
 
 #[tauri::command]
 fn get_ports() -> Vec<String> {
@@ -377,8 +426,7 @@ fn main() {
                     baud_rate: String::from("9800"),
                 },
                 ending: String::from(""),
-                record_toggle: Arc::new(AtomicBool::new(false)),
-                serial_thread: Arc::new(AtomicBool::new(false)),
+                is_thread_open: Arc::new(AtomicBool::new(false)),
             }),
         ))
         .invoke_handler(tauri::generate_handler![
