@@ -1,19 +1,17 @@
 // Prevents additional console window on Windows in release, DO NOT REMOVE!!
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 mod serial_wrapper;
-use serialport::{Error, Result, SerialPort};
+use serialport::SerialPort;
 use std::path::PathBuf;
+use std::sync::Mutex;
 use std::sync::{
     atomic::{AtomicBool, Ordering},
     Arc,
 };
-
-use std::sync::Mutex;
 use tauri::{CustomMenuItem, Manager, Menu, State, Submenu};
 // todo move into wrapper
 use rfd::FileDialog;
 use std::fs::File;
-
 // todo move into Data struct
 pub struct PortItmes {
     port_path: String,
@@ -24,18 +22,18 @@ pub struct PortItmes {
 // todo group data into sub structs or impl.
 pub struct Data {
     // todo change to option
-    port: Result<Box<dyn SerialPort>>,
+    port: Option<Box<dyn SerialPort>>,
     file_path: Option<PathBuf>,
-    file: Option<File>,
     port_items: PortItmes,
     ending: String,
     is_thread_open: Arc<AtomicBool>,
+    is_recording: bool,
     // todo track currect menu itmes
 }
 
 pub struct AppData(Mutex<Data>);
 
-fn handle_serial_connect(app: tauri::AppHandle) -> bool {
+fn handle_serial_connect(app: tauri::AppHandle) {
     // clone the app
     let app_clone = app.clone();
 
@@ -46,122 +44,191 @@ fn handle_serial_connect(app: tauri::AppHandle) -> bool {
     // clone state gaurd data
     let port_path = state_gaurd.port_items.port_path.clone();
     let baud_rate = state_gaurd.port_items.baud_rate.clone();
-  
-    // todo check before write
-    // get the port items
-    let is_thread_open = state_gaurd.is_thread_open.load(Ordering::Relaxed);
+    // convert baud to num
+    let baud_rate_num = baud_rate.parse::<u32>().unwrap();
 
-    if (is_thread_open) {
+    // check port
+    match &state_gaurd.port {
+        // if port exists
+        Some(_) => {
+            // anounce killing the thread
+            println!("Killing thread");
+            // kill thread
+            state_gaurd.is_thread_open.store(false, Ordering::Relaxed);
+            // wait for change
+            while !state_gaurd.is_thread_open.load(Ordering::Relaxed) {}
+            // set the port as an none
+            state_gaurd.port = None;
+            // update lable menu
+            let lable_title: String = format!("Connect: {} | {}", port_path, baud_rate);
+            // update the menu
+            let main_window = app.get_window("main").unwrap();
+            let menu_handle = main_window.menu_handle();
+            // set the menu
+            menu_handle
+                .get_item("connect")
+                .set_title(lable_title)
+                .expect("Failed to change menu");
 
-        // anounce killing the thread
-        println!("killing thread");
-        // kill thread. todo confim thead kill
-        state_gaurd.is_thread_open.store(false, Ordering::Relaxed);
-
-        // set the port as an error
-        state_gaurd.port = Err(Error {
-            kind: serialport::ErrorKind::Unknown,
-            description: String::from(""),
-        });
-
-        // update lable menu
-        let lable_title: String = format!("Connect: {} | {}", port_path, baud_rate);
-        // update the menu
-        let main_window = app.get_window("main").unwrap();
-        let menu_handle = main_window.menu_handle();
-        // set the menu
-        menu_handle
-            .get_item("connect")
-            .set_title(lable_title)
-            .expect("Failed to change menu");
-        return true;
-    } else {
-        // start the port
-        let port = serial_wrapper::init_port(port_path, baud_rate_num);
-        // match on success
-        match port {
-            Ok(port) => {
-                // convert baud to num
-                let baud_rate_num = baud_rate.parse::<u32>().unwrap();
-                // try clone port
-                let port_clone = port.try_clone().unwrap();
-                // set the port
-                state_gaurd.port = Ok(port);
-                // clone the thread handle (copys a refrence)
-                let is_thread_opened = state_gaurd.is_thread_open.clone();
-                // enable thread
-                is_thread_opened.store(true, Ordering::Relaxed);
-                // use clone on thread
-                serial_wrapper::start_clone_thread(
-                    app.clone(),
-                    port_clone,
-                    is_thread_opened,
-                );
-
-                // update the menu
-                let main_window = app.get_window("main").unwrap();
-                let menu_handle = main_window.menu_handle();
-                // set the menu
+            // if recoding stop recording
+            if state_gaurd.is_recording {
+                // change menu
                 menu_handle
-                    .get_item("connect")
-                    .set_title("Disconnect")
+                    .clone()
+                    .get_item("start")
+                    .set_title("Start")
                     .expect("Failed to change menu");
-
-                return true;
+                state_gaurd.is_recording = false;
             }
-            Err(_e) => {
-                // todo make menu show error
-                // port could not be created
+        }
+        // start new port
+        None => {
+            // start new port
+            let port = serial_wrapper::init_port(port_path, baud_rate_num);
+            // check port success
+            match port {
+                Ok(port) => {
+                    // store report
+                    let port_clone = port.try_clone().expect("Couldn't clone port");
+                    // set the port
+                    state_gaurd.port = Some(port);
+                    // clone the thread handle (copys a refrence)
+                    let is_thread_open_ref = state_gaurd.is_thread_open.clone();
+                    // use clone on thread
+                    serial_wrapper::start_clone_thread(app.clone(), port_clone, is_thread_open_ref);
 
-                // couldn't open make thread false 
-                state_gaurd.is_thread_opened.store(true, Ordering::Relaxed);
-                return false;
+                    // update the menu
+                    let main_window = app.get_window("main").unwrap();
+                    let menu_handle = main_window.menu_handle();
+                    // set the menu
+                    menu_handle
+                        .get_item("connect")
+                        .set_title("Disconnect")
+                        .expect("Failed to change menu");
+                }
+                Err(e) => {
+                    let error_description = format!("{}{}", "An error occured opening port: ", e);
+                    rfd::MessageDialog::new()
+                        .set_level(rfd::MessageLevel::Error) // Set the message level to indicate an error
+                        .set_title("Port Error")
+                        .set_description(error_description.as_str())
+                        .set_buttons(rfd::MessageButtons::Ok) // Use OkCancel buttons
+                        .show();
+                }
             }
         }
     }
 }
 
+
+// todo fix the most aweful nextest code you've ever seen
 // kills current thread and starts recording
-fn handle_start_record(app: tauri::AppHandle) -> bool {
+fn handle_start_record(app: tauri::AppHandle) {
     // clone the app
     let app_clone = app.clone();
-
+    // get state from app
     let state = app_clone.state::<AppData>();
     // unclock gaurd
     let mut state_gaurd = state.0.lock().unwrap();
 
-    // clone state gaurd data
-    let port_path = state_gaurd.port_items.port_path.clone();
-    let baud_rate = state_gaurd.port_items.baud_rate.clone();
+    if !state_gaurd.is_recording {
+        // check port
+        match &state_gaurd.port {
+            Some(port) => {
+                // check if file exits
+                match &state_gaurd.file_path {
+                    Some(path) => {
+                        // anounce killing the thread
+                        println!("Killing thread");
+                        // get the opened port
+                        let port_clone = port.try_clone().unwrap();
+                        // clone thread ref
+                        let is_thread_open_ref = state_gaurd.is_thread_open.clone();
+                        // create file name
+                        let file_path = path.join("hello.txt");
 
-    // todo check before write
-    // get the port items
-    let is_thread_open = state_gaurd.is_thread_open.load(Ordering::Relaxed);
-
-    // if there is a thread open (must be a valid port)
-    if (is_thread_open) {
-        // anounce killing the thread
-        println!("killing thread");
-        // kill thread. todo confim thead kill
-        state_gaurd.is_thread_open.store(false, Ordering::Relaxed);
-        // get the opened port
-        let port_clone = state_gaurd.port.unwrap();
-        // open thread
-        state_gaurd.is_thread_open.store(false, Ordering::Relaxed);
-        // start serial on port
-        serial_wrapper::start_record_on_port(
-            app.clone(),
-            port_clone,
-            is_thread_opened,
-        );
-
-
+                        // create file
+                        let file = File::create(&file_path);
+                        match file {
+                            Ok(file) => {
+                                // kill thread
+                                state_gaurd.is_thread_open.store(false, Ordering::Relaxed);
+                                // wait for change // todo add timout
+                                while !state_gaurd.is_thread_open.load(Ordering::Relaxed) {}
+                                // recording
+                                state_gaurd.is_recording = true;
+                                // start serial on port
+                                serial_wrapper::start_record_on_port(
+                                    app.clone(),
+                                    port_clone,
+                                    is_thread_open_ref,
+                                    file,
+                                );
+                                // update menu
+                                let main_window = app.get_window("main").unwrap();
+                                let menu_handle = main_window.menu_handle();
+                                // set the menu
+                                menu_handle
+                                    .get_item("start")
+                                    .set_title("Stop")
+                                    .expect("Failed to change menu");
+                            }
+                            Err(e) => {
+                                state_gaurd.is_recording = false;
+                                let error_description =
+                                    format!("{}{}", "An error occured creating file: ", e);
+                                rfd::MessageDialog::new()
+                                    .set_level(rfd::MessageLevel::Error) // Set the message level to indicate an error
+                                    .set_title("File Error")
+                                    .set_description(error_description.as_str())
+                                    .set_buttons(rfd::MessageButtons::Ok) // Use OkCancel buttons
+                                    .show();
+                            }
+                        }
+                    }
+                    None => {
+                        state_gaurd.is_recording = false;
+                        rfd::MessageDialog::new()
+                            .set_level(rfd::MessageLevel::Error) // Set the message level to indicate an error
+                            .set_title("File Error")
+                            .set_description("File path not set.")
+                            .set_buttons(rfd::MessageButtons::Ok) // Use OkCancel buttons
+                            .show();
+                    }
+                }
+            }
+            None => {
+                state_gaurd.is_recording = false;
+                // must be connected to serial port to start recording
+                rfd::MessageDialog::new()
+                    .set_level(rfd::MessageLevel::Error) // Set the message level to indicate an error
+                    .set_title("Port Error")
+                    .set_description("Connect to port first.")
+                    .set_buttons(rfd::MessageButtons::Ok) // Use OkCancel buttons
+                    .show();
+            }
+        }
     } else {
-        // announce error
-        // must be connected to serial port to start recording
+        // stop recording
+        state_gaurd.port = None;
+        // kill thread
+        state_gaurd.is_thread_open.store(false, Ordering::Relaxed);
+        // wait for change // todo add timout
+        while !state_gaurd.is_thread_open.load(Ordering::Relaxed) {}
+        // unlock gaurd
+        std::mem::drop(state_gaurd);
+        // clone app and open port
+        handle_serial_connect(app.clone());
+
+        let main_window = app.get_window("main").unwrap();
+        let menu_handle = main_window.menu_handle();
+        // set the menu
+        menu_handle
+            .get_item("start")
+            .set_title("Start")
+            .expect("Failed to change menu");
     }
 }
-
 
 #[tauri::command]
 fn get_ports() -> Vec<String> {
@@ -169,19 +236,36 @@ fn get_ports() -> Vec<String> {
 }
 
 #[tauri::command]
-fn send_serial(state: State<AppData>, input: String) -> bool {
+fn send_serial(state: State<AppData>, input: String) {
     let mut state_gaurd = state.0.lock().unwrap();
     println!("writng string: {}", input);
     let input_format = format!("{}{}", input, state_gaurd.ending);
-    let write = serial_wrapper::write_serial(&mut state_gaurd.port, input_format.as_str());
-    match write {
-        Ok(_) => {
-            println!("write successful");
-            return true;
+    match &mut state_gaurd.port {
+        Some(port) => {
+            let write = serial_wrapper::write_serial(port, input_format.as_str());
+            match write {
+                Ok(s) => {
+                    println!("Write {} bytes success", s);
+                }
+                Err(e) => {
+                    let error_description =
+                        format!("{}{}", "An error occured writing to port: ", e);
+                    rfd::MessageDialog::new()
+                        .set_level(rfd::MessageLevel::Error) // Set the message level to indicate an error
+                        .set_title("Write Error")
+                        .set_description(error_description.as_str())
+                        .set_buttons(rfd::MessageButtons::Ok) // Use OkCancel buttons
+                        .show();
+                }
+            }
         }
-        Err(e) => {
-            println!("an error has occured write to read: {}", e);
-            return false;
+        None => {
+            rfd::MessageDialog::new()
+                .set_level(rfd::MessageLevel::Error) // Set the message level to indicate an error
+                .set_title("Port Error")
+                .set_description("Connect to port first.")
+                .set_buttons(rfd::MessageButtons::Ok) // Use OkCancel buttons
+                .show();
         }
     }
 }
@@ -218,90 +302,15 @@ fn set_folder_path(state: State<AppData>) -> bool {
             // save to path
         }
         None => {
-            return false;
+            rfd::MessageDialog::new()
+                .set_level(rfd::MessageLevel::Error) // Set the message level to indicate an error
+                .set_title("File Error")
+                .set_description("Set director before creating file.")
+                .set_buttons(rfd::MessageButtons::Ok) // Use OkCancel buttons
+                .show();
         }
     }
     return true;
-}
-
-fn handle_start_record(app: tauri::AppHandle) -> bool {
-    // get menu
-    let main_window = app.clone().get_window("main").unwrap();
-    let menu_handle = main_window.menu_handle();
-    // get state
-    let state = app.state::<AppData>();
-    let mut state_gaurd = state.0.lock().unwrap();
-
-    // check state of recroding
-    match state_gaurd.record_toggle.load(Ordering::Relaxed) {
-        // if recording prompt to stop
-        true => {
-            // stop recording
-            println!("Stop recording");
-            state_gaurd.record_toggle.store(false, Ordering::Relaxed);
-            // set file to none
-            state_gaurd.file = None;
-
-            // kill thread
-            state_gaurd.serial_thread.store(false, Ordering::Relaxed);
-
-            // set the port as an error
-            state_gaurd.port = Err(Error {
-                kind: serialport::ErrorKind::Unknown,
-                description: String::from(""),
-            });
-
-            // update menu to next state
-            menu_handle
-                .get_item("start")
-                .set_title("Start")
-                .expect("Failed to change menu");
-        }
-        false => {
-            match &state_gaurd.file_path {
-                Some(path) => {
-                    println!("Start recording");
-                    // kill old thread
-                    state_gaurd.serial_thread.store(false, Ordering::Relaxed);
-                    // get record toggle clone
-                    let record_toggle_clone = state_gaurd.record_toggle.clone();
-                    // start new thread
-                    state_gaurd.serial_thread.store(true, Ordering::Relaxed);
-                    // try clone port
-                    let port_clone = port.try_clone();
-                    // set the port
-                    state_gaurd.port = Ok(port);git 
-                    // clone the thread handle (copys a refrence)
-                    let serial_thread_clone = state_gaurd.serial_thread.clone();
-                    // enable thread
-                    serial_thread_clone.store(true, Ordering::Relaxed);
-                    // clone app
-                    let app_clone_thread = app.clone();
-
-                    // use clone on thread
-                    serial_wrapper::start_clone_thread_clone_file(
-                        app_clone_thread,
-                        port_clone,
-                        serial_thread_clone,
-                        file,
-                    );
-                }
-                None => {
-                    println!("File path not set");
-                    state_gaurd.record_toggle.store(false, Ordering::Relaxed);
-                }
-            }
-
-            menu_handle
-                .get_item("start")
-                .set_title("Stop")
-                .expect("Failed to change menu");
-        }
-    }
-
-    // set menu stop
-    return true;
-    // destroy the port by opending to nothing
 }
 
 fn set_ending(app: tauri::AppHandle, ending: String) {
@@ -415,18 +424,15 @@ fn main() {
         .manage(AppData(
             // create a new unintlized port
             Mutex::new(Data {
-                port: Err(Error {
-                    kind: serialport::ErrorKind::Unknown,
-                    description: String::from(""),
-                }),
+                port: None,
                 file_path: Some(PathBuf::from("/home")),
-                file: None,
                 port_items: PortItmes {
                     port_path: String::from(""),
                     baud_rate: String::from("9800"),
                 },
                 ending: String::from(""),
-                is_thread_open: Arc::new(AtomicBool::new(false)),
+                is_thread_open: Arc::new(AtomicBool::new(true)),
+                is_recording: false,
             }),
         ))
         .invoke_handler(tauri::generate_handler![
@@ -458,9 +464,7 @@ fn main() {
                 let app = event.window().app_handle();
                 let state = app.state::<AppData>();
                 // handle error
-                if !set_folder_path(state) {
-                    todo!();
-                };
+                set_folder_path(state);
             }
             "start" => {
                 let app = event.window().app_handle();

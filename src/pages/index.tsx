@@ -116,38 +116,14 @@ export default function Home() {
             </>
         );
     }
-
-    async function handleFolderSet() {
-        let data = await invoke("print_file_path");
-        if (data) {
-            writeNewLines("\n(Serial console) Path Set Successful\n");
-        } else {
-            writeNewLines("\n(Serial console) Path Set Unsuccessful\n");
-        }
-    }
-
-    function FolderButton() {
-        return (
-            <div className="flex flex-row items-center gap-2">
-                <FaFolder
-                    onClick={handleFolderSet}
-                    className="hover:bg-gray-300 color-white bg-gray-500 h-12 w-12 rounded-full p-3"
-                />
-            </div>
-        );
-    }
-
     const [delimiter, setDelimiter] = useState("\n");
 
     async function handleSend(event: any) {
         event.preventDefault();
         // writeNewLines(inputValueText + "\n");
         setInputValueText("");
-
-        let data = await invoke("send_serial", {input: inputValueText});
-        if (!data) {
-            writeNewLines("\n(Serial console) Failed to send serial\n");
-        }
+        // send serial
+        await invoke("send_serial", {input: inputValueText});
     }
 
     const [inputValuePower, setInputValuePower] = useState("");
@@ -177,10 +153,7 @@ export default function Home() {
         setInputValuePower("");
         setInputValueStop("");
         const newLines: any = [...lines, str];
-        let data = invoke("send_serial", {input: str});
-        if (!data) {
-            writeNewLines("\n(Serial console) Failed to send serial\n");
-        }
+        invoke("send_serial", {input: str});
     }
     // makes a window from rust
     async function hanndleSetup() {
