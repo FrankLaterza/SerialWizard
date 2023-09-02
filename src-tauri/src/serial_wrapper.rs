@@ -26,7 +26,7 @@ pub fn list_ports() -> Vec<String> {
 
 // try to init the serial and return the port
 pub fn init_port(port_path: String, baud_rate: u32) -> Result<Box<dyn SerialPort>> {
-    println!("Init serial port");
+    println!("Opening port: {}, baud: {}", port_path, baud_rate);
     let port = serialport::new(port_path, baud_rate)
         .timeout(Duration::from_millis(10))
         .open()?;
@@ -60,7 +60,41 @@ pub fn start_clone_thread(
                 }
                 // todo emmit_all on error
                 Err(ref e) if e.kind() == io::ErrorKind::TimedOut => (),
-                Err(e) => eprintln!("{:?}", e),
+                Err(e) => {
+                    // clone the app
+                    let app_clone = app.clone();
+                    use crate::AppData;
+                    let state = app_clone.state::<AppData>();
+                    // unclock gaurd
+                    let mut state_gaurd = state.0.lock().unwrap();
+                    // set the port as an none
+                    // clone state gaurd data
+                    let port_path = state_gaurd.port_items.port_path.clone();
+                    let baud_rate = state_gaurd.port_items.baud_rate.clone();
+                    // set the port as none
+                    state_gaurd.port = None;
+                    // update lable menu
+                    let lable_title: String = format!("Connect: {} | {}", port_path, baud_rate);
+                    // update the menu
+                    let main_window = app.get_window("main").unwrap();
+                    let menu_handle = main_window.menu_handle();
+                    // set the menu
+                    menu_handle
+                        .get_item("connect")
+                        .set_title(lable_title)
+                        .expect("Failed to change menu");
+
+                    state_gaurd.is_recording = false;
+                    is_thread_open.store(false, Ordering::Relaxed);
+
+                    // let error_description = format!("{}{}", "An error occured opening port: ", e);
+                    // rfd::MessageDialog::new()
+                    //     .set_level(rfd::MessageLevel::Error) // Set the message level to indicate an error
+                    //     .set_title("Port Error")
+                    //     .set_description(error_description.as_str())
+                    //     .set_buttons(rfd::MessageButtons::Ok) // Use OkCancel buttons
+                    //     .show();
+                }
             }
         }
         println!("Terminating no record thread and now enabling...");
@@ -98,7 +132,39 @@ pub fn start_record_on_port(
                 }
                 // todo emmit_all on error
                 Err(ref e) if e.kind() == io::ErrorKind::TimedOut => (),
-                Err(e) => eprintln!("{:?}", e),
+                Err(e) => {
+                    // clone the app
+                    let app_clone = app.clone();
+
+                    use crate::AppData;
+                    let state = app_clone.state::<AppData>();
+                    // unclock gaurd
+                    let mut state_gaurd = state.0.lock().unwrap();
+                    // set the port as an none
+                    // clone state gaurd data
+                    let port_path = state_gaurd.port_items.port_path.clone();
+                    let baud_rate = state_gaurd.port_items.baud_rate.clone();
+                    // set the port as none
+                    state_gaurd.port = None;
+                    // update lable menu
+                    let lable_title: String = format!("Connect: {} | {}", port_path, baud_rate);
+                    // update the menu
+                    let main_window = app.get_window("main").unwrap();
+                    let menu_handle = main_window.menu_handle();
+                    // set the menu
+                    menu_handle
+                        .get_item("connect")
+                        .set_title(lable_title)
+                        .expect("Failed to change menu");
+
+                    menu_handle
+                        .get_item("start")
+                        .set_title("Start")
+                        .expect("Failed to change menu");
+
+                    state_gaurd.is_recording = false;
+                    is_thread_open.store(false, Ordering::Relaxed);
+                }
             }
         }
         println!("Terminating record thread and now enabling...");

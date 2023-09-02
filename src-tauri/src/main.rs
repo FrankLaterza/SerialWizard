@@ -1,6 +1,7 @@
 // Prevents additional console window on Windows in release, DO NOT REMOVE!!
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 mod serial_wrapper;
+use chrono::Utc;
 use serialport::SerialPort;
 use std::path::PathBuf;
 use std::sync::Mutex;
@@ -12,6 +13,8 @@ use tauri::{CustomMenuItem, Manager, Menu, State, Submenu};
 // todo move into wrapper
 use rfd::FileDialog;
 use std::fs::File;
+use std::time::{Duration, SystemTime};
+use chrono::prelude::*;
 // todo move into Data struct
 pub struct PortItmes {
     port_path: String,
@@ -120,7 +123,6 @@ fn handle_serial_connect(app: tauri::AppHandle) {
     }
 }
 
-
 // todo fix the most aweful nextest code you've ever seen
 // kills current thread and starts recording
 fn handle_start_record(app: tauri::AppHandle) {
@@ -144,8 +146,16 @@ fn handle_start_record(app: tauri::AppHandle) {
                         let port_clone = port.try_clone().unwrap();
                         // clone thread ref
                         let is_thread_open_ref = state_gaurd.is_thread_open.clone();
+                        // Get the current system time
+                        let system_time = SystemTime::now();
+                        // Convert the system time to a DateTime object in the local timezone
+                        let datetime: DateTime<Local> = system_time.into();
+                        // Format the date and time as a string
+                        let formatted_date_time = datetime.format("%Y-%m-%d_%H:%M:%S").to_string();
+                        // format
+                        let file_name = format!("SerialWizard_{}.txt", formatted_date_time);
                         // create file name
-                        let file_path = path.join("hello.txt");
+                        let file_path = path.join(file_name);
 
                         // create file
                         let file = File::create(&file_path);
