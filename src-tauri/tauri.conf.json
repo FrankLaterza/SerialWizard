@@ -58,7 +58,8 @@
                 "height": 900,
                 "resizable": true,
                 "title": "serial",
-                "width": 1200
+                "width": 1200,
+                "decorations": false
             }
         ]
     }

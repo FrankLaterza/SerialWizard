@@ -62,27 +62,6 @@ fn handle_serial_connect(app: tauri::AppHandle) {
             while !state_gaurd.is_thread_open.load(Ordering::Relaxed) {}
             // set the port as an none
             state_gaurd.port = None;
-            // update lable menu
-            let lable_title: String = format!("Connect: {} | {}", port_path, baud_rate);
-            // update the menu
-            let main_window = app.get_window("main").unwrap();
-            let menu_handle = main_window.menu_handle();
-            // set the menu
-            menu_handle
-                .get_item("connect")
-                .set_title(lable_title)
-                .expect("Failed to change menu");
-
-            // if recoding stop recording
-            if state_gaurd.is_recording {
-                // change menu
-                menu_handle
-                    .clone()
-                    .get_item("start")
-                    .set_title("Start")
-                    .expect("Failed to change menu");
-                state_gaurd.is_recording = false;
-            }
         }
         // start new port
         None => {
@@ -99,15 +78,6 @@ fn handle_serial_connect(app: tauri::AppHandle) {
                     let is_thread_open_ref = state_gaurd.is_thread_open.clone();
                     // use clone on thread
                     serial_wrapper::start_clone_thread(app.clone(), port_clone, is_thread_open_ref);
-
-                    // update the menu
-                    let main_window = app.get_window("main").unwrap();
-                    let menu_handle = main_window.menu_handle();
-                    // set the menu
-                    menu_handle
-                        .get_item("connect")
-                        .set_title("Disconnect")
-                        .expect("Failed to change menu");
                 }
                 Err(e) => {
                     let error_description = format!("{}{}", "An error occured opening port: ", e);
@@ -174,14 +144,6 @@ fn handle_start_record(app: tauri::AppHandle) {
                                     is_thread_open_ref,
                                     file,
                                 );
-                                // update menu
-                                let main_window = app.get_window("main").unwrap();
-                                let menu_handle = main_window.menu_handle();
-                                // set the menu
-                                menu_handle
-                                    .get_item("start")
-                                    .set_title("Stop")
-                                    .expect("Failed to change menu");
                             }
                             Err(e) => {
                                 state_gaurd.is_recording = false;
@@ -229,14 +191,6 @@ fn handle_start_record(app: tauri::AppHandle) {
         std::mem::drop(state_gaurd);
         // clone app and open port
         handle_serial_connect(app.clone());
-
-        let main_window = app.get_window("main").unwrap();
-        let menu_handle = main_window.menu_handle();
-        // set the menu
-        menu_handle
-            .get_item("start")
-            .set_title("Start")
-            .expect("Failed to change menu");
     }
 }
 
@@ -297,131 +251,6 @@ async fn make_window(handle: tauri::AppHandle) {
         .unwrap();
 }
 
-fn set_folder_path(state: State<AppData>) -> bool {
-    let mut state_gaurd = state.0.lock().unwrap();
-
-    let dir = FileDialog::new().set_directory("/").pick_folder();
-    // print the path
-    match dir {
-        Some(path) => {
-            // add the file name to the path get string. todo fix
-            let file_path = path.join("");
-            println!("path set {}", file_path.to_string_lossy());
-            // set path
-            state_gaurd.file_path = Some(file_path);
-            // save to path
-        }
-        None => {
-            rfd::MessageDialog::new()
-                .set_level(rfd::MessageLevel::Error) // Set the message level to indicate an error
-                .set_title("File Error")
-                .set_description("Set director before creating file.")
-                .set_buttons(rfd::MessageButtons::Ok) // Use OkCancel buttons
-                .show();
-        }
-    }
-    return true;
-}
-
-fn set_ending(app: tauri::AppHandle, ending: String) {
-    let state = app.state::<AppData>();
-    let mut state_gaurd = state.0.lock().unwrap();
-    // todo show input to user somehow
-    println!("{}", ending);
-
-    if ending == "\\n\\r" {
-        let combo = format!("{}{}", '\n', '\r');
-        state_gaurd.ending = combo;
-    } else if ending == "\\n" {
-        state_gaurd.ending = String::from('\n');
-    } else if ending == "\\r" {
-        state_gaurd.ending = String::from('\r');
-    } else {
-        state_gaurd.ending = String::from("");
-    }
-}
-
-fn set_port(app: tauri::AppHandle, port_path: String) {
-    let state = app.state::<AppData>();
-    let mut state_gaurd = state.0.lock().unwrap();
-    state_gaurd.port_items.port_path = port_path;
-
-    // update lable menu
-    let port_path_clone = state_gaurd.port_items.port_path.clone();
-    let baud_rate_clone = state_gaurd.port_items.baud_rate.clone();
-    let lable_title: String = format!("Connect: {} | {}", port_path_clone, baud_rate_clone);
-    // update the menu
-    let main_window = app.get_window("main").unwrap();
-    let menu_handle = main_window.menu_handle();
-    // set the menu
-    menu_handle
-        .get_item("connect")
-        .set_title(lable_title)
-        .expect("Failed to change menu");
-}
-
-fn set_baud(app: tauri::AppHandle, baud_rate: String) {
-    let state = app.state::<AppData>();
-    let mut state_gaurd = state.0.lock().unwrap();
-    state_gaurd.port_items.baud_rate = baud_rate;
-
-    // update lable menu
-    let port_path_clone = state_gaurd.port_items.port_path.clone();
-    let baud_rate_clone = state_gaurd.port_items.baud_rate.clone();
-    let lable_title: String = format!("Connect: {} | {}", port_path_clone, baud_rate_clone);
-    // update the menu
-    let main_window = app.get_window("main").unwrap();
-    let menu_handle = main_window.menu_handle();
-    // set the menu
-    menu_handle
-        .get_item("connect")
-        .set_title(lable_title)
-        .expect("Failed to change menu");
-}
-
-fn create_ending_items(endings: Vec<&str>) -> Menu {
-    let mut menu = Menu::new();
-    for end in endings {
-        menu = menu.add_item(CustomMenuItem::new(end, end));
-    }
-
-    return menu;
-}
-
-fn create_port_items() -> Menu {
-    let mut menu = Menu::new();
-    let ports: Vec<String> = get_ports();
-    for port in ports {
-        menu = menu.add_item(CustomMenuItem::new(port.clone(), port));
-    }
-    // todo add refresh button
-    // menu = menu.add_item(CustomMenuItem::new("refresh", "Refresh"));
-
-    return menu;
-}
-
-// todo find better solution
-// fn refresh_port_items(app: tauri::AppHandle) {
-//     // get the existing menu
-//     let main_window = app.get_window("main").unwrap();
-//     let menu_handle = main_window.menu_handle();
-
-//     let ports: Vec<String> = get_ports();
-//     for port in ports {
-//         // custom tauri function
-//         // menu_handle.print_ids();
-//     }
-// }
-
-fn create_baud_items(baud_rates: Vec<&str>) -> Menu {
-    let mut menu = Menu::new();
-    for baud in baud_rates {
-        menu = menu.add_item(CustomMenuItem::new(baud, baud));
-    }
-
-    return menu;
-}
-
 fn main() {
     let baud_rates: Vec<&str> = vec![
         "300", "1200", "2400", "4800", "9600", "19200", "38400", "57600", "74880", "115200",
@@ -451,68 +280,6 @@ fn main() {
             send_serial,
             make_window,
         ])
-        .menu(
-            Menu::new()
-                .add_submenu(Submenu::new(
-                    "Record",
-                    Menu::new()
-                        .add_item(CustomMenuItem::new("set_directory", "Set Directory"))
-                        .add_item(CustomMenuItem::new("start", "Start")),
-                ))
-                .add_submenu(Submenu::new(
-                    "Serial",
-                    Menu::new()
-                        // todo add changing menu buttons
-                        .add_item(CustomMenuItem::new("connect", "Connect: None"))
-                        .add_submenu(Submenu::new("Ending", create_ending_items(endings.clone())))
-                        .add_submenu(Submenu::new("Ports", create_port_items()))
-                        .add_submenu(Submenu::new("Bauds", create_baud_items(baud_rates.clone()))),
-                )),
-        )
-        .on_menu_event(move |event| match event.menu_item_id() {
-            "set_directory" => {
-                let app = event.window().app_handle();
-                let state = app.state::<AppData>();
-                // handle error
-                set_folder_path(state);
-            }
-            "start" => {
-                let app = event.window().app_handle();
-                handle_start_record(app);
-            }
-            "connect" => {
-                let app = event.window().app_handle();
-                handle_serial_connect(app);
-            }
-            "refresh" => {
-                // let app = event.window().app_handle();
-                // refresh_port_items(app);
-            }
-            _ => {
-                for end in &endings {
-                    if end == &event.menu_item_id() {
-                        let app = event.window().app_handle();
-                        set_ending(app, end.to_string());
-                    }
-                }
-
-                for baud in &baud_rates {
-                    if baud == &event.menu_item_id() {
-                        let app = event.window().app_handle();
-                        set_baud(app, baud.to_string());
-                    }
-                }
-
-                // get the ports from the event
-                let ports = get_ports();
-                for port in ports {
-                    if port == event.menu_item_id() {
-                        let app = event.window().app_handle();
-                        set_port(app, port);
-                    }
-                }
-            }
-        })
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

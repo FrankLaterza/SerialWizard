@@ -38,7 +38,7 @@ interface HeaderProps {
   setIsDropped: React.Dispatch<React.SetStateAction<boolean>>;
 }
 
-function Header({ isDropped, setIsDropped }: HeaderProps) {
+export default function Header({ isDropped, setIsDropped }: HeaderProps) {
   return (
     /* header */
     <div className="flex flex-row px-10 justify-center items-center w-full h-100 py-4 text-xl text-center bg-gray-900">
@@ -53,4 +53,4 @@ function Header({ isDropped, setIsDropped }: HeaderProps) {
   );
 }
 
-export default Header;
+

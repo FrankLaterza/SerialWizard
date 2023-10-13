@@ -132,6 +132,7 @@ interface BoxProps {
     setLines: React.Dispatch<React.SetStateAction<string[]>>;
 }
 
+// TODO turn off scroll ref if not at the bottom of the page
 function Box({lines, setLines}: BoxProps) {
 
     const [inputValueText, setInputValueText] = useState("");
@@ -168,12 +169,21 @@ function Box({lines, setLines}: BoxProps) {
     }
 
     const scrollRef = useRef<HTMLDivElement>(null);
+    const [isAtBottom, setIsAtBottom] = useState<boolean>(true);
     // scroll to bottom
     function scrollToBottom() {
-        if (scrollRef.current) {
+        if (scrollRef.current && isAtBottom) {
             scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
         }
     };
+
+    // TODO test this
+    function handleIsAtBottom(e: React.UIEvent<HTMLDivElement>){
+        const bottom = e.currentTarget.scrollHeight - e.currentTarget.scrollTop === e.currentTarget.clientHeight;
+        // Assuming setIsAtBottom is a state updater function
+        setIsAtBottom(!bottom);
+        console.log(isAtBottom);
+    }
 
     const [messageBox, setMessageBox] = useState<String>("");
 
@@ -219,6 +229,7 @@ function Box({lines, setLines}: BoxProps) {
             <div className="overflow-hidden w-full h-full flex flex-col">
                 {/* message box */}
                 <div
+                    onScroll={handleIsAtBottom}
                     ref={scrollRef}
                     className="overflow-y-scroll resize-none h-full flex flex-grow justify-start flex-col bg-gray-500"
                 >
@@ -251,7 +262,7 @@ interface MessageBoxProps {
     isDropped: boolean;
 }
 
-function MessageBox({ isDropped }: MessageBoxProps) {
+export default function MessageBox({ isDropped }: MessageBoxProps) {
 
     const [lines, setLines] = useState<string[]>([]);
 
@@ -266,6 +277,3 @@ function MessageBox({ isDropped }: MessageBoxProps) {
         </div >
     );
 }
-
-
-export default MessageBox

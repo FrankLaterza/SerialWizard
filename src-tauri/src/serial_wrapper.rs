@@ -73,16 +73,6 @@ pub fn start_clone_thread(
                     let baud_rate = state_gaurd.port_items.baud_rate.clone();
                     // set the port as none
                     state_gaurd.port = None;
-                    // update lable menu
-                    let lable_title: String = format!("Connect: {} | {}", port_path, baud_rate);
-                    // update the menu
-                    let main_window = app.get_window("main").unwrap();
-                    let menu_handle = main_window.menu_handle();
-                    // set the menu
-                    menu_handle
-                        .get_item("connect")
-                        .set_title(lable_title)
-                        .expect("Failed to change menu");
 
                     state_gaurd.is_recording = false;
                     is_thread_open.store(false, Ordering::Relaxed);
@@ -146,22 +136,7 @@ pub fn start_record_on_port(
                     let baud_rate = state_gaurd.port_items.baud_rate.clone();
                     // set the port as none
                     state_gaurd.port = None;
-                    // update lable menu
-                    let lable_title: String = format!("Connect: {} | {}", port_path, baud_rate);
-                    // update the menu
-                    let main_window = app.get_window("main").unwrap();
-                    let menu_handle = main_window.menu_handle();
-                    // set the menu
-                    menu_handle
-                        .get_item("connect")
-                        .set_title(lable_title)
-                        .expect("Failed to change menu");
-
-                    menu_handle
-                        .get_item("start")
-                        .set_title("Start")
-                        .expect("Failed to change menu");
-
+                    // toggle recording
                     state_gaurd.is_recording = false;
                     is_thread_open.store(false, Ordering::Relaxed);
                 }
