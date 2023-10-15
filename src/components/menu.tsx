@@ -3,11 +3,11 @@ import { FaFile, FaCog, FaMinus, FaExpand, FaTimes } from 'react-icons/fa';
 import { useState, useRef, useEffect } from "react";
 
 function MenuItem({ text }: any) {
-  return <li className="cursor-pointer text-black">{text}</li>;
+  return <li className="px-4 py-2 bg-white hover:bg-gray-400 cursor-pointer text-black">{text}</li>;
 }
 
 function SubMenu({ text, menuItemList }: any) {
-  const [isSubOpen, setIsSubOpen] = useState(false);
+  const [isSubOpen, setIsSubOpen] = useState(true);
 
   const openDropdown = () => {
     setIsSubOpen(true);
@@ -23,9 +23,9 @@ function SubMenu({ text, menuItemList }: any) {
       onMouseEnter={openDropdown}
       onMouseLeave={closeDropdown}
     >
-      <span className="cursor-pointer text-black">{text}</span>
+      <li className="px-4 py-2 cursor-pointer text-black bg-white hover:bg-gray-400">{text}</li>
       {isSubOpen && (
-        <ul className="absolute mx-2 space-y-4 bg-white p-2 left-full top-0">
+        <ul className="absolute w-max bg-white left-full top-0">
           {menuItemList.map((item: any, index: any) => (
             <MenuItem key={index} text={item.text} />
           ))}
@@ -57,11 +57,11 @@ function Serial() {
       onMouseEnter={openDropdown}
       onMouseLeave={closeDropdown}
     >
-      <ul className="flex justify-center items-center space-x-4">
-        <li className="relative h-fit">
-          <span className="cursor-pointer">Menu</span>
+      <ul className="flex justify-center items-center py-2 cursor-pointer">
+        <li className="relative h-fit px-4">
+          <span >Serial</span>
           {isDropdownOpen && (
-            <ul className="flex flex-col w-max absolute space-y-2 bg-white p-2 block">
+            <ul className="flex flex-col w-max absolute bg-white my-2 block">
               <MenuItem text="Hi" />
               <MenuItem text="Hello" />
               <SubMenu text={"Submenu"} menuItemList={subMenuItems} />
@@ -73,37 +73,42 @@ function Serial() {
   );
 }
 
-
 function Record(){ 
-  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+    const [isDropdownOpen, setIsDropdownOpen] = useState(false);
 
-  const toggleDropdown = () => {
-    setIsDropdownOpen(!isDropdownOpen);
-  };
-
-  const subMenuItems = [
-    { text: "Hi" },
-    { text: "How are you today?" },
-    { text: "Hello" },
-  ];
-
-  return (
-    <nav onMouseEnter={toggleDropdown} onMouseLeave={toggleDropdown}>
-      <ul className="flex justify-center items-center space-x-4">
-        <li className="relative">
-          <span className="cursor-pointer">Menu</span>
-          {isDropdownOpen && (
-            <ul className="flex flex-col w-max absolute space-y-2 bg-white p-2 block">
-              <MenuItem text="Hi" />
-              <MenuItem text="Hello" />
-              <SubMenu menuItemList={subMenuItems} />
-              <SubMenu text={"submenu"} menuItemList={subMenuItems} />
-            </ul>
-          )}
-        </li>
-      </ul>
-    </nav>
-  );
+    const openDropdown = () => {
+      setIsDropdownOpen(true);
+    };
+  
+    const closeDropdown = () => {
+      setIsDropdownOpen(false);
+    };
+  
+    const subMenuItems = [
+      { text: "Hi" },
+      { text: "How are you today?" },
+      { text: "Hello" },
+    ];
+  
+    return (
+      <nav
+        onMouseEnter={openDropdown}
+        onMouseLeave={closeDropdown}
+      >
+        <ul className="flex justify-center items-center py-2 cursor-pointer">
+          <li className="relative h-fit px-4">
+            <span >Menu</span>
+            {isDropdownOpen && (
+              <ul className="flex flex-col w-max absolute bg-white my-2 block">
+                <MenuItem text="Hi" />
+                <MenuItem text="Hello" />
+                <SubMenu text={"Submenu"} menuItemList={subMenuItems} />
+              </ul>
+            )}
+          </li>
+        </ul>
+      </nav>
+    );
 }
 
 export default function WindowBar() {
@@ -125,8 +130,8 @@ export default function WindowBar() {
   }
 
   return (
-    <div data-tauri-drag-region className="bg-black text-white m-2 flex justify-between items-center">
-      <div className="flex space-x-6 menu-options">
+    <div data-tauri-drag-region className="bg-black text-white flex justify-between items-center">
+      <div className="flex menu-options">
         <Record />
         <Serial />
       </div>
