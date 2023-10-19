@@ -19,7 +19,6 @@ export default function Home() {
     return (
         <main className="bg-black flex justify-between flex-col gap-0 w-screen overflow-hidden h-screen min-h-screen">
             <WindowBar/>
-            <Header isDropped={isDropped} setIsDropped={setIsDropped} />
             <MessageBox isDropped={isDropped} />
         </main>
     );

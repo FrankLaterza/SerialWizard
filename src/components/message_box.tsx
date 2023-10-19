@@ -181,8 +181,7 @@ function Box({lines, setLines}: BoxProps) {
     function handleIsAtBottom(e: React.UIEvent<HTMLDivElement>){
         const bottom = e.currentTarget.scrollHeight - e.currentTarget.scrollTop === e.currentTarget.clientHeight;
         // Assuming setIsAtBottom is a state updater function
-        setIsAtBottom(!bottom);
-        console.log(isAtBottom);
+        setIsAtBottom(bottom);
     }
 
     const [messageBox, setMessageBox] = useState<String>("");
@@ -214,15 +213,18 @@ function Box({lines, setLines}: BoxProps) {
 
 
     function writeNewLines(str: string) {
-        setMessageBox((messageBox) => messageBox.concat(str));
+        setMessageBox((messageBox) =>
+            // max 10,000 lines
+            messageBox.concat(str).slice(-10000)
+        );
     }
-
+      
     // check scroll to bottom on message update
     useEffect(() => {
+        if (isAtBottom) {
         scrollToBottom();
+        }
     }, [messageBox, messageBox.length]);
-
-
 
     return (
         <>
@@ -231,7 +233,7 @@ function Box({lines, setLines}: BoxProps) {
                 <div
                     onScroll={handleIsAtBottom}
                     ref={scrollRef}
-                    className="overflow-y-scroll resize-none h-full flex flex-grow justify-start flex-col bg-gray-500"
+                    className="bg-zinc-700 overflow-y-scroll resize-none h-full flex flex-grow justify-start flex-col"
                 >
                     {messages()}
                 </div>
@@ -250,7 +252,7 @@ function Box({lines, setLines}: BoxProps) {
                     />
                     <FiSend
                         onClick={handleSend}
-                        className="color-white bg-blue-800 h-full w-12 p-2"
+                        className="color-white bg-violet-800 h-full w-12 p-2"
                     />
                 </form>
             </div>
@@ -269,11 +271,11 @@ export default function MessageBox({ isDropped }: MessageBoxProps) {
     return (
 
         /* main message box */
-        < div className="h-full w-full gap-2 p-5 flex flex-row overflow-hidden" >
+        < div className="h-full w-full bg-zinc-800 gap-2 p-5 flex flex-row overflow-hidden" >
             {/* buttons left*/}
             <Menu isDropped={isDropped} lines={lines} />
             {/* message box and text box right */}
-            <Box  lines={lines} setLines = {setLines} />
+            <Box lines={lines} setLines = {setLines} />
         </div >
     );
 }

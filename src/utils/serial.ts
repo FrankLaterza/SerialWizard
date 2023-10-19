@@ -56,12 +56,17 @@ function convertEnding(ending: string) {
   }
 }
 
-async function handle_record(setIsRecording: any) {
+async function handleRecord(setIsRecording: any) {
   const res = await invoke("handle_start_record", {});
   setIsRecording(res);
 }
 
-async function handle_set_folder() {
+async function handleSetFolder() {
   await invoke("set_folder_path", {});
 }
-export { handleGetPorts, handleConnect, handle_record, handle_set_folder, getBaudList, getEnding } 
+
+async function sendError(input: String) {
+  await invoke("emit_error", {input})
+}
+
+export { handleGetPorts, handleConnect, handleRecord, handleSetFolder, getBaudList, getEnding, sendError } 

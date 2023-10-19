@@ -7,6 +7,8 @@ use std::sync::{
 use std::time::Duration;
 use std::{io, thread};
 use tauri::Manager;
+use rfd::FileDialog;
+
 
 #[derive(Clone, serde::Serialize)]
 struct Payload {
@@ -55,10 +57,8 @@ pub fn start_clone_thread(
                     let data_str = String::from_utf8_lossy(&serial_buf[..size]).to_string();
                     println!("Received: {}", data_str);
                     // emmit update to fronten
-                    app.emit_all("updateSerial", Payload { message: data_str })
-                        .unwrap();
+                    app.emit_all("updateSerial", Payload { message: data_str }).unwrap();
                 }
-                // todo emit_all on error
                 Err(ref e) if e.kind() == io::ErrorKind::TimedOut => (),
                 Err(e) => {
                     // clone the app
@@ -76,14 +76,8 @@ pub fn start_clone_thread(
 
                     state_gaurd.is_recording = false;
                     is_thread_open.store(false, Ordering::Relaxed);
-
-                    // let error_description = format!("{}{}", "An error occured opening port: ", e);
-                    // rfd::MessageDialog::new()
-                    //     .set_level(rfd::MessageLevel::Error) // Set the message level to indicate an error
-                    //     .set_title("Port Error")
-                    //     .set_description(error_description.as_str())
-                    //     .set_buttons(rfd::MessageButtons::Ok) // Use OkCancel buttons
-                    //     .show();
+                    // disconnect frontend
+                    app.emit_all("isConnected", Payload {message: "disconnected".to_string()}).unwrap();
                 }
             }
         }

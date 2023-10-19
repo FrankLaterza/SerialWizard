@@ -52,12 +52,26 @@ fn set_port_items(state: State<AppData>, port: &str, baud: &str, ending: &str){
 
 #[tauri::command]
 fn handle_serial_connect(app: tauri::AppHandle) -> bool {
+
     // clone the app
     let app_clone = app.clone();
     // get the state
     let state = app_clone.state::<AppData>();
     // unlock gaurd
     let mut state_gaurd = state.0.lock().unwrap();
+
+    // check if recording
+    if state_gaurd.is_recording {
+        rfd::MessageDialog::new()
+        .set_level(rfd::MessageLevel::Error) // Set the message level to indicate an error
+        .set_title("Port Error")
+        .set_description("Please stop recording before disconnecting")
+        .set_buttons(rfd::MessageButtons::Ok) // Use OkCancel buttons
+        .show();
+        return true;
+    }
+
+
     // check port
     match &state_gaurd.port {
         // if port exists
@@ -228,6 +242,17 @@ fn get_ports() -> Vec<String> {
 }
 
 #[tauri::command]
+fn emit_error(input: String) {
+    rfd::MessageDialog::new()
+    .set_level(rfd::MessageLevel::Error) // Set the message level to indicate an error
+    .set_title("Port Error")
+    .set_description(input.as_str())
+    .set_buttons(rfd::MessageButtons::Ok) // Use OkCancel buttons
+    .show();
+    
+}
+
+#[tauri::command]
 fn send_serial(state: State<AppData>, input: String) {
     let mut state_gaurd = state.0.lock().unwrap();
     let input_format = format!("{}{}", input, state_gaurd.port_items.ending);
@@ -306,6 +331,7 @@ fn main() {
             get_ports,
             send_serial,
             make_window,
+            emit_error
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
