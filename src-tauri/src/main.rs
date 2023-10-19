@@ -18,7 +18,7 @@ use chrono::prelude::*;
 // todo move into Data struct
 pub struct PortItems {
     port_path: String,
-    baud_rate: String,
+    baud_rate: u32,
     ending: String,
 }
 
@@ -37,11 +37,7 @@ pub struct Data {
 pub struct AppData(Mutex<Data>);
 
 #[tauri::command]
-fn handle_serial_connect(app: tauri::AppHandle, port: &str, baud: &str, ending: &str) -> bool {
-    // clone the app
-    let app_clone = app.clone();
-    // get the state
-    let state = app_clone.state::<AppData>();
+fn set_port_items(state: State<AppData>, port: &str, baud: &str, ending: &str){
     // unclock gaurd
     let mut state_gaurd = state.0.lock().unwrap();
     
@@ -49,13 +45,19 @@ fn handle_serial_connect(app: tauri::AppHandle, port: &str, baud: &str, ending: 
     // TODO change ending to update without port init
     state_gaurd.port_items = PortItems {
         port_path: port.to_string(),
-        baud_rate: baud.to_string(),
+        baud_rate: baud.to_string().parse::<u32>().unwrap(),
         ending: ending.to_string()
     };
+}
 
-    // convert baud to num
-    let baud_rate_num = baud.to_string().parse::<u32>().unwrap();
-
+#[tauri::command]
+fn handle_serial_connect(app: tauri::AppHandle) -> bool {
+    // clone the app
+    let app_clone = app.clone();
+    // get the state
+    let state = app_clone.state::<AppData>();
+    // unlock gaurd
+    let mut state_gaurd = state.0.lock().unwrap();
     // check port
     match &state_gaurd.port {
         // if port exists
@@ -72,8 +74,8 @@ fn handle_serial_connect(app: tauri::AppHandle, port: &str, baud: &str, ending: 
         }
         // start new port
         None => {
-            // start new port
-            let port = serial_wrapper::init_port(port.to_string(), baud_rate_num);
+            // start new port TODO make it not really long
+            let port = serial_wrapper::init_port(state_gaurd.port_items.port_path.to_string(), state_gaurd.port_items.baud_rate);
             // check port success
             match port {
                 Ok(port) => {
@@ -111,7 +113,7 @@ fn handle_start_record(app: tauri::AppHandle) -> bool {
     let app_clone = app.clone();
     // get state from app
     let state = app_clone.state::<AppData>();
-    // unclock gaurd
+    // unlock gaurd
     let mut state_gaurd = state.0.lock().unwrap();
     if !state_gaurd.is_recording {
         // check port
@@ -129,11 +131,12 @@ fn handle_start_record(app: tauri::AppHandle) -> bool {
                         // Convert the system time to a DateTime object in the local timezone
                         let datetime: DateTime<Local> = system_time.into();
                         // Format the date and time as a string
-                        let formatted_date_time = datetime.format("%Y-%m-%d_%H:%M:%S").to_string();
+                        let formatted_date_time = datetime.format("%Y-%m-%d_%H.%M.%S").to_string();
                         // format
                         let file_name = format!("SerialWizard_{}.txt", formatted_date_time);
                         // create file name
                         let file_path = path.join(file_name);
+                        println!("{}", file_path.to_string_lossy());
 
                         // create file
                         let file = File::create(&file_path);
@@ -141,7 +144,7 @@ fn handle_start_record(app: tauri::AppHandle) -> bool {
                             Ok(file) => {
                                 // kill thread
                                 state_gaurd.is_thread_open.store(false, Ordering::Relaxed);
-                                // wait for change // TODO add timout
+                                // wait for change // TODO add timRout
                                 while !state_gaurd.is_thread_open.load(Ordering::Relaxed) {}
                                 // recording
                                 state_gaurd.is_recording = true;
@@ -152,7 +155,7 @@ fn handle_start_record(app: tauri::AppHandle) -> bool {
                                     is_thread_open_ref,
                                     file,
                                 );
-                                println!("finshed start clone");
+                                println!("finish start clone");
                                 return true;
                             }
                             Err(e) => {
@@ -199,10 +202,115 @@ fn handle_start_record(app: tauri::AppHandle) -> bool {
     state_gaurd.port = None;
     // kill thread
     state_gaurd.is_thread_open.store(false, Ordering::Relaxed);
-    // wait for change // TODO add timout
+    // wait for change // TODO add timeout
     while !state_gaurd.is_thread_open.load(Ordering::Relaxed) {}
     // clone app and open port
-    handle_serial_connect(app.clone(), &state_gaurd.port_items.port_path, &state_gaurd.port_items.baud_rate, &state_gaurd.port_items.ending);
+    // handle_serial_connect(app.clone());
+    drop(state_gaurd);
+    return false;
+}
+
+// TODO fix the most aweful nested code you've ever seen
+// kills current thread and starts recording
+#[tauri::command]
+fn handle_start_record_old(app: tauri::AppHandle) -> bool {
+    // clone the app
+    let app_clone = app.clone();
+    // get state from app
+    let state = app_clone.state::<AppData>();
+    // unlock gaurd
+    let mut state_gaurd = state.0.lock().unwrap();
+    if !state_gaurd.is_recording {
+        // check port
+        match &state_gaurd.port {
+            Some(port) => {
+                // check if file exits
+                match &state_gaurd.folder_path {
+                    Some(path) => {
+                        // get the opened port
+                        let port_clone = port.try_clone().unwrap();
+                        // clone thread ref
+                        let is_thread_open_ref = state_gaurd.is_thread_open.clone();
+                        // Get the current system time
+                        let system_time = SystemTime::now();
+                        // Convert the system time to a DateTime object in the local timezone
+                        let datetime: DateTime<Local> = system_time.into();
+                        // Format the date and time as a string
+                        let formatted_date_time = datetime.format("%Y-%m-%d_%H.%M.%S").to_string();
+                        // format
+                        let file_name = format!("SerialWizard_{}.txt", formatted_date_time);
+                        // create file name
+                        let file_path = path.join(file_name);
+                        println!("{}", file_path.to_string_lossy());
+
+                        // create file
+                        let file = File::create(&file_path);
+                        match file {
+                            Ok(file) => {
+                                // kill thread
+                                state_gaurd.is_thread_open.store(false, Ordering::Relaxed);
+                                // wait for change // TODO add timRout
+                                while !state_gaurd.is_thread_open.load(Ordering::Relaxed) {}
+                                // recording
+                                state_gaurd.is_recording = true;
+                                // start serial on port
+                                serial_wrapper::start_record_on_port(
+                                    app.clone(),
+                                    port_clone,
+                                    is_thread_open_ref,
+                                    file,
+                                );
+                                println!("finish start clone");
+                                return true;
+                            }
+                            Err(e) => {
+                                state_gaurd.is_recording = false;
+                                let error_description =
+                                    format!("{}{}", "An error occured creating file: ", e);
+                                rfd::MessageDialog::new()
+                                    .set_level(rfd::MessageLevel::Error) // Set the message level to indicate an error
+                                    .set_title("File Error")
+                                    .set_description(error_description.as_str())
+                                    .set_buttons(rfd::MessageButtons::Ok) // Use OkCancel buttons
+                                    .show();
+                                return false;
+                            }
+                        }
+                    }
+                    None => {
+                        state_gaurd.is_recording = false;
+                        rfd::MessageDialog::new()
+                            .set_level(rfd::MessageLevel::Error) // Set the message level to indicate an error
+                            .set_title("File Error")
+                            .set_description("File path not set.")
+                            .set_buttons(rfd::MessageButtons::Ok) // Use OkCancel buttons
+                            .show();
+                        return false;
+                    }
+                }
+            }
+            None => {
+                state_gaurd.is_recording = false;
+                // must be connected to serial port to start recording
+                rfd::MessageDialog::new()
+                    .set_level(rfd::MessageLevel::Error) // Set the message level to indicate an error
+                    .set_title("Port Error")
+                    .set_description("Connect to port first.")
+                    .set_buttons(rfd::MessageButtons::Ok) // Use OkCancel buttons
+                    .show();
+                return false;
+            }
+        }
+    }
+    // stop recording
+    // set port to none
+    state_gaurd.port = None;
+    // kill thread
+    state_gaurd.is_thread_open.store(false, Ordering::Relaxed);
+    // wait for change // TODO add timeout
+    while !state_gaurd.is_thread_open.load(Ordering::Relaxed) {}
+    // clone app and open port
+    // handle_serial_connect(app.clone());
     return false;
 }
 
@@ -285,7 +393,7 @@ fn main() {
                 folder_path: Some(PathBuf::from("/home")),
                 port_items: PortItems {
                     port_path: String::from(""),
-                    baud_rate: String::from(""),
+                    baud_rate: 0,
                     ending: String::from("")
                 },
                 is_thread_open: Arc::new(AtomicBool::new(true)),
@@ -293,6 +401,7 @@ fn main() {
             }),
         ))
         .invoke_handler(tauri::generate_handler![
+            set_port_items,
             handle_serial_connect,
             handle_start_record,
             set_folder_path,

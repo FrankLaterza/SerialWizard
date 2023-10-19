@@ -58,7 +58,7 @@ pub fn start_clone_thread(
                     app.emit_all("updateSerial", Payload { message: data_str })
                         .unwrap();
                 }
-                // todo emmit_all on error
+                // todo emit_all on error
                 Err(ref e) if e.kind() == io::ErrorKind::TimedOut => (),
                 Err(e) => {
                     // clone the app

@@ -7,7 +7,8 @@ async function handleGetPorts(setPorts: any) {
 
 async function handleConnect(port: string, baud: string, ending: string, setIsConnected: any) {
   ending = convertEnding(ending)
-  const isConnected = await invoke("handle_serial_connect", {port, baud, ending});
+  invoke("set_port_items", {port, baud, ending});
+  const isConnected = await invoke("handle_serial_connect", {});
   setIsConnected(isConnected);
 }
 
