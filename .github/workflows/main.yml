@@ -1,4 +1,4 @@
-name: 'serial_monitor'
+name: 'SerialWizard'
 on:
   push:
     branches:
