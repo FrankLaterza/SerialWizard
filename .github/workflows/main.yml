@@ -43,7 +43,7 @@ jobs:
         # If you don't have `beforeBuildCommand` configured you may want to build your frontend here too.
         run: npm install # Change this to npm, yarn or pnpm.
 
-      - name: exporting web assests 
+      - name: Exporting web assests 
         # If you don't have `beforeBuildCommand` configured you may want to build your frontend here too.
         run: npm run export
 
