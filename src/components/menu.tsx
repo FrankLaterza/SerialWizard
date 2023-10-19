@@ -1,13 +1,14 @@
 import React from 'react';
 import { FaFile, FaCog, FaMinus, FaExpand, FaTimes } from 'react-icons/fa';
 import { useState, useRef, useEffect } from "react";
+import { handleGetPorts, getBaudList, handleConnect, getEnding, handle_record, handle_set_folder } from "../utils/serial"
 
-function MenuItem({ text }: any) {
-  return <li className="px-4 py-2 bg-white hover:bg-gray-400 cursor-pointer text-black">{text}</li>;
+function MenuItem({ text, onClick}: any) {
+  return <li onClick={onClick} className="px-6 py-2 bg-white hover:bg-gray-400 cursor-pointer text-black">{text}</li>;
 }
 
-function SubMenu({ text, menuItemList }: any) {
-  const [isSubOpen, setIsSubOpen] = useState(true);
+function SubMenu({ text, setHook, menuItemList }: any) {
+  const [isSubOpen, setIsSubOpen] = useState(false);
 
   const openDropdown = () => {
     setIsSubOpen(true);
@@ -17,17 +18,21 @@ function SubMenu({ text, menuItemList }: any) {
     setIsSubOpen(false);
   };
 
+  function handleSelection (item: string){
+    setHook(item)
+  }
+
   return (
     <li
       className="relative"
       onMouseEnter={openDropdown}
       onMouseLeave={closeDropdown}
     >
-      <li className="px-4 py-2 cursor-pointer text-black bg-white hover:bg-gray-400">{text}</li>
+      <li className="px-6 py-2 cursor-pointer text-black bg-white hover:bg-gray-400">{text}</li>
       {isSubOpen && (
         <ul className="absolute w-max bg-white left-full top-0">
           {menuItemList.map((item: any, index: any) => (
-            <MenuItem key={index} text={item.text} />
+              <MenuItem key={index} text={item} onClick={() => handleSelection(item)}/>
           ))}
         </ul>
       )}
@@ -36,21 +41,22 @@ function SubMenu({ text, menuItemList }: any) {
 }
 
 function Serial() {
+  const [baud, setBaud] = useState("9600");
+  const [port, setPort] = useState("None");
+  const [portList, setPortList] = useState(["None"]);
+  const [ending, setEnding] = useState("None");
+  const [isConnected, setIsConnected] = useState(false);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
 
-  const openDropdown = () => {
+  // open dropdown and also gets dynamic data
+  function openDropdown() {
     setIsDropdownOpen(true);
+    handleGetPorts(setPortList);
   };
 
-  const closeDropdown = () => {
+  function closeDropdown() {
     setIsDropdownOpen(false);
   };
-
-  const subMenuItems = [
-    { text: "Hi" },
-    { text: "How are you today?" },
-    { text: "Hello" },
-  ];
 
   return (
     <nav
@@ -59,12 +65,25 @@ function Serial() {
     >
       <ul className="flex justify-center items-center py-2 cursor-pointer">
         <li className="relative h-fit px-4">
-          <span >Serial</span>
+          <span>Serial</span>
           {isDropdownOpen && (
             <ul className="flex flex-col w-max absolute bg-white my-2 block">
-              <MenuItem text="Hi" />
-              <MenuItem text="Hello" />
-              <SubMenu text={"Submenu"} menuItemList={subMenuItems} />
+              <MenuItem text={isConnected ? "Disconnect" : "Connect"} onClick={() => handleConnect(port, baud, ending, setIsConnected)} />
+              <SubMenu
+                text={`Baud: ${baud}`}
+                setHook={setBaud}
+                menuItemList={getBaudList()}
+              />
+              <SubMenu
+                text={`Port: ${port}`}
+                setHook={setPort}
+                menuItemList={portList}
+              />
+              <SubMenu
+                text={`Ending: ${ending}`}
+                setHook={setEnding}
+                menuItemList={getEnding()}
+              />
             </ul>
           )}
         </li>
@@ -75,6 +94,7 @@ function Serial() {
 
 function Record(){ 
     const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+    const [isRecording, setIsRecording] = useState(false);
 
     const openDropdown = () => {
       setIsDropdownOpen(true);
@@ -84,12 +104,6 @@ function Record(){
       setIsDropdownOpen(false);
     };
   
-    const subMenuItems = [
-      { text: "Hi" },
-      { text: "How are you today?" },
-      { text: "Hello" },
-    ];
-  
     return (
       <nav
         onMouseEnter={openDropdown}
@@ -97,12 +111,11 @@ function Record(){
       >
         <ul className="flex justify-center items-center py-2 cursor-pointer">
           <li className="relative h-fit px-4">
-            <span >Menu</span>
+            <span>Record</span>
             {isDropdownOpen && (
               <ul className="flex flex-col w-max absolute bg-white my-2 block">
-                <MenuItem text="Hi" />
-                <MenuItem text="Hello" />
-                <SubMenu text={"Submenu"} menuItemList={subMenuItems} />
+                <MenuItem text={ isRecording ? "Stop" : "Record"} onClick={() => handle_record(setIsRecording)} />
+                <MenuItem text="Set Folder" onClick={() => handle_set_folder()} />
               </ul>
             )}
           </li>
@@ -135,7 +148,7 @@ export default function WindowBar() {
         <Record />
         <Serial />
       </div>
-      <div className="flex space-x-2 gap-2">
+      <div className="flex px-4 space-x-2 gap-2">
         <button onClick={toggleMinimize} className="flex justify-center items-center">
           <FaMinus className="text-white w-3 h-3" />
         </button>

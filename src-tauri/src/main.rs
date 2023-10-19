@@ -16,9 +16,10 @@ use std::fs::File;
 use std::time::{Duration, SystemTime};
 use chrono::prelude::*;
 // todo move into Data struct
-pub struct PortItmes {
+pub struct PortItems {
     port_path: String,
     baud_rate: String,
+    ending: String,
 }
 
 // todo change Data name because its lame
@@ -26,9 +27,8 @@ pub struct PortItmes {
 pub struct Data {
     // todo change to option
     port: Option<Box<dyn SerialPort>>,
-    file_path: Option<PathBuf>,
-    port_items: PortItmes,
-    ending: String,
+    folder_path: Option<PathBuf>,
+    port_items: PortItems,
     is_thread_open: Arc<AtomicBool>,
     is_recording: bool,
     // todo track currect menu itmes
@@ -36,19 +36,25 @@ pub struct Data {
 
 pub struct AppData(Mutex<Data>);
 
-fn handle_serial_connect(app: tauri::AppHandle) {
+#[tauri::command]
+fn handle_serial_connect(app: tauri::AppHandle, port: &str, baud: &str, ending: &str) -> bool {
     // clone the app
     let app_clone = app.clone();
-
+    // get the state
     let state = app_clone.state::<AppData>();
     // unclock gaurd
     let mut state_gaurd = state.0.lock().unwrap();
+    
+    // store port items
+    // TODO change ending to update without port init
+    state_gaurd.port_items = PortItems {
+        port_path: port.to_string(),
+        baud_rate: baud.to_string(),
+        ending: ending.to_string()
+    };
 
-    // clone state gaurd data
-    let port_path = state_gaurd.port_items.port_path.clone();
-    let baud_rate = state_gaurd.port_items.baud_rate.clone();
     // convert baud to num
-    let baud_rate_num = baud_rate.parse::<u32>().unwrap();
+    let baud_rate_num = baud.to_string().parse::<u32>().unwrap();
 
     // check port
     match &state_gaurd.port {
@@ -62,17 +68,18 @@ fn handle_serial_connect(app: tauri::AppHandle) {
             while !state_gaurd.is_thread_open.load(Ordering::Relaxed) {}
             // set the port as an none
             state_gaurd.port = None;
+            return false;
         }
         // start new port
         None => {
             // start new port
-            let port = serial_wrapper::init_port(port_path, baud_rate_num);
+            let port = serial_wrapper::init_port(port.to_string(), baud_rate_num);
             // check port success
             match port {
                 Ok(port) => {
                     // store report
                     let port_clone = port.try_clone().expect("Couldn't clone port");
-                    // set the port
+                    // store the port
                     state_gaurd.port = Some(port);
                     // clone the thread handle (copys a refrence)
                     let is_thread_open_ref = state_gaurd.is_thread_open.clone();
@@ -87,31 +94,32 @@ fn handle_serial_connect(app: tauri::AppHandle) {
                         .set_description(error_description.as_str())
                         .set_buttons(rfd::MessageButtons::Ok) // Use OkCancel buttons
                         .show();
+
+                    return false;
                 }
             }
         }
     }
+    return true;
 }
 
-// todo fix the most aweful nextest code you've ever seen
+// TODO fix the most aweful nested code you've ever seen
 // kills current thread and starts recording
-fn handle_start_record(app: tauri::AppHandle) {
+#[tauri::command]
+fn handle_start_record(app: tauri::AppHandle) -> bool {
     // clone the app
     let app_clone = app.clone();
     // get state from app
     let state = app_clone.state::<AppData>();
     // unclock gaurd
     let mut state_gaurd = state.0.lock().unwrap();
-
     if !state_gaurd.is_recording {
         // check port
         match &state_gaurd.port {
             Some(port) => {
                 // check if file exits
-                match &state_gaurd.file_path {
+                match &state_gaurd.folder_path {
                     Some(path) => {
-                        // anounce killing the thread
-                        println!("Killing thread");
                         // get the opened port
                         let port_clone = port.try_clone().unwrap();
                         // clone thread ref
@@ -133,7 +141,7 @@ fn handle_start_record(app: tauri::AppHandle) {
                             Ok(file) => {
                                 // kill thread
                                 state_gaurd.is_thread_open.store(false, Ordering::Relaxed);
-                                // wait for change // todo add timout
+                                // wait for change // TODO add timout
                                 while !state_gaurd.is_thread_open.load(Ordering::Relaxed) {}
                                 // recording
                                 state_gaurd.is_recording = true;
@@ -144,6 +152,8 @@ fn handle_start_record(app: tauri::AppHandle) {
                                     is_thread_open_ref,
                                     file,
                                 );
+                                println!("finshed start clone");
+                                return true;
                             }
                             Err(e) => {
                                 state_gaurd.is_recording = false;
@@ -155,6 +165,7 @@ fn handle_start_record(app: tauri::AppHandle) {
                                     .set_description(error_description.as_str())
                                     .set_buttons(rfd::MessageButtons::Ok) // Use OkCancel buttons
                                     .show();
+                                return false;
                             }
                         }
                     }
@@ -166,6 +177,7 @@ fn handle_start_record(app: tauri::AppHandle) {
                             .set_description("File path not set.")
                             .set_buttons(rfd::MessageButtons::Ok) // Use OkCancel buttons
                             .show();
+                        return false;
                     }
                 }
             }
@@ -178,22 +190,32 @@ fn handle_start_record(app: tauri::AppHandle) {
                     .set_description("Connect to port first.")
                     .set_buttons(rfd::MessageButtons::Ok) // Use OkCancel buttons
                     .show();
+                return false;
             }
         }
-    } else {
-        // stop recording
-        state_gaurd.port = None;
-        // kill thread
-        state_gaurd.is_thread_open.store(false, Ordering::Relaxed);
-        // wait for change // todo add timout
-        while !state_gaurd.is_thread_open.load(Ordering::Relaxed) {}
-        // unlock gaurd
-        std::mem::drop(state_gaurd);
-        // clone app and open port
-        handle_serial_connect(app.clone());
     }
+    // stop recording
+    // set port to none
+    state_gaurd.port = None;
+    // kill thread
+    state_gaurd.is_thread_open.store(false, Ordering::Relaxed);
+    // wait for change // TODO add timout
+    while !state_gaurd.is_thread_open.load(Ordering::Relaxed) {}
+    // clone app and open port
+    handle_serial_connect(app.clone(), &state_gaurd.port_items.port_path, &state_gaurd.port_items.baud_rate, &state_gaurd.port_items.ending);
+    return false;
 }
 
+#[tauri::command]
+fn set_folder_path(state: State<AppData>){
+    // unclock gaurd
+    let mut state_gaurd = state.0.lock().unwrap();
+    // set the folder path
+    let dir = FileDialog::new().set_directory("/").pick_folder();
+    // store the dir
+    state_gaurd.folder_path = dir;
+}
+ 
 #[tauri::command]
 fn get_ports() -> Vec<String> {
     return serial_wrapper::list_ports();
@@ -203,7 +225,7 @@ fn get_ports() -> Vec<String> {
 fn send_serial(state: State<AppData>, input: String) {
     let mut state_gaurd = state.0.lock().unwrap();
     println!("writng string: {}", input);
-    let input_format = format!("{}{}", input, state_gaurd.ending);
+    let input_format = format!("{}{}", input, state_gaurd.port_items.ending);
     match &mut state_gaurd.port {
         Some(port) => {
             let write = serial_wrapper::write_serial(port, input_format.as_str());
@@ -234,6 +256,7 @@ fn send_serial(state: State<AppData>, input: String) {
     }
 }
 
+
 #[tauri::command]
 fn greet(name: &str) {
     println!("Hello, {}!", name);
@@ -252,11 +275,6 @@ async fn make_window(handle: tauri::AppHandle) {
 }
 
 fn main() {
-    let baud_rates: Vec<&str> = vec![
-        "300", "1200", "2400", "4800", "9600", "19200", "38400", "57600", "74880", "115200",
-        "230400", "250000", "500000", "1000000", "2000000",
-    ];
-    let endings: Vec<&str> = vec!["\\n\\r", "\\n", "\\r", "None"];
 
     // tauri builder
     tauri::Builder::default()
@@ -264,17 +282,20 @@ fn main() {
             // create a new unintlized port
             Mutex::new(Data {
                 port: None,
-                file_path: Some(PathBuf::from("/home")),
-                port_items: PortItmes {
+                folder_path: Some(PathBuf::from("/home")),
+                port_items: PortItems {
                     port_path: String::from(""),
-                    baud_rate: String::from("9800"),
+                    baud_rate: String::from(""),
+                    ending: String::from("")
                 },
-                ending: String::from(""),
                 is_thread_open: Arc::new(AtomicBool::new(true)),
                 is_recording: false,
             }),
         ))
         .invoke_handler(tauri::generate_handler![
+            handle_serial_connect,
+            handle_start_record,
+            set_folder_path,
             greet,
             get_ports,
             send_serial,
