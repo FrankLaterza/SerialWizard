@@ -1,9 +1,8 @@
 name: Release
 on:
   push:
-    tags:
-      - 'release'
-  workflow_dispatch:
+    branches:
+      - release
 
 jobs:
   release:
