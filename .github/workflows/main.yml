@@ -1,4 +1,5 @@
-name: 'serial_monitor'
+
+name: 'publish'
 on:
   push:
     branches:
