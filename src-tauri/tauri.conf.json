@@ -6,7 +6,7 @@
         "distDir": "../out"
     },
     "package": {
-        "productName": "serial",
+        "productName": "SerialWizard",
         "version": "0.1.0"
     },
     "tauri": {

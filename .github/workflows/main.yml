@@ -1,4 +1,5 @@
-name: 'SerialWizard'
+
+name: 'publish'
 on:
   push:
     branches:
