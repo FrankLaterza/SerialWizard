@@ -1,9 +1,17 @@
-# Serial Monitor Using Tauri
-### About
-For this project I wanted to make a serial monitor with tauri because of its corss platform application building. I can make a native application using a front end in Nextjs and a back end in rust.
+<p align="center">
+  <img src="./src-tauri/icons/WIZARDCAT.png" alt="cat" />
+</p>
 
-### Setup
-Install all the dependancies for rust and the website then you can run cargo run dev to start the application.
+# Serial Wizard
+Welcome to SerialWizard, A simple, lightweight, cross-platform desktop application used to monitor serial inputs and outputs. Created wiht Tauri, this application uses a Next.js frontend and a Rust backend. The aim of this project is to learn how to make desktop applications and improve my Rust skills. Tauri empowers us to seamlessly merge web technologies with native performance, resulting in a reliable serial monitoring solution.
 
-### Release
-Check the releases for a downloadable application for you OS!
+## Installation
+
+To get started with my serial monitor you can follow these simple steps:
+
+* After cloning the repo you can install the dependencies with ```npm install```
+* To run the application you can use ```cargo tauri dev```
+
+## Releases
+
+If you want to start using Serial Wizard right away you can find bundled application installers and executables for all platforms in releases. Experience native cross-platform serial monitoring with ease! Feel free to explore and adapt this project to meet your requirements.
