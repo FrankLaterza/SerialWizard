@@ -43,6 +43,14 @@ jobs:
         # If you don't have `beforeBuildCommand` configured you may want to build your frontend here too.
         run: npm install # Change this to npm, yarn or pnpm.
 
+      - name: Exporting web assests 
+        # If you don't have `beforeBuildCommand` configured you may want to build your frontend here too.
+        run: npm run export
+
+      - name: Exporting web assests 
+        # If you don't have `beforeBuildCommand` configured you may want to build your frontend here too.
+        run: npm run export
+
       - name: Build the app
         uses: tauri-apps/tauri-action@v0
 
