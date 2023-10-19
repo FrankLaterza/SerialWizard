@@ -6,7 +6,6 @@ import { emit, listen } from "@tauri-apps/api/event";
 import Image from "next/image";
 import cat from "../../src-tauri/icons/32x32.png"
 
-
 function MenuItem({ text, onClick}: any) {
   return <li onClick={onClick} className="px-6 py-2 bg-white hover:bg-zinc-400 cursor-pointer text-black">{text}</li>;
 }
