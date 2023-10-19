@@ -8,7 +8,8 @@
     "export": "next export",
     "start": "next start",
     "tauri": "tauri",
-    "lint": "next lint"
+    "lint": "next lint",
+    "tauri:build": "tauri build"
   },
   "dependencies": {
     "@ant-design/icons": "^5.2.6",
