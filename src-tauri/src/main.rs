@@ -1,7 +1,6 @@
 // Prevents additional console window on Windows in release, DO NOT REMOVE!!
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 mod serial_wrapper;
-use chrono::Utc;
 use serialport::SerialPort;
 use std::path::PathBuf;
 use std::sync::Mutex;
@@ -9,12 +8,13 @@ use std::sync::{
     atomic::{AtomicBool, Ordering},
     Arc,
 };
-use tauri::{CustomMenuItem, Manager, Menu, State, Submenu};
+use tauri::{Manager, State};
 // todo move into wrapper
 use rfd::FileDialog;
 use std::fs::File;
-use std::time::{Duration, SystemTime};
-use chrono::prelude::*;
+use std::time::SystemTime;
+use chrono::{DateTime, Local};
+
 // todo move into Data struct
 pub struct PortItems {
     port_path: String,
@@ -141,18 +141,18 @@ fn handle_start_record(app: tauri::AppHandle) -> bool {
                         let port_clone = port.try_clone().unwrap();
                         // clone thread ref
                         let is_thread_open_ref = state_gaurd.is_thread_open.clone();
-                        // Get the current system time
+                        // get the current system time
                         let system_time = SystemTime::now();
-                        // Convert the system time to a DateTime object in the local timezone
+                        // convert the system time to a DateTime object in the local timezone
                         let datetime: DateTime<Local> = system_time.into();
-                        // Format the date and time as a string
+                        // format the date and time as a string
                         let formatted_date_time = datetime.format("%Y-%m-%d_%H.%M.%S").to_string();
                         // format
                         let file_name = format!("SerialWizard_{}.txt", formatted_date_time);
                         // create file name
                         let file_path = path.join(file_name);
-                        println!("{}", file_path.to_string_lossy());
 
+                        let path_clone = path.clone();
                         // create file
                         let file = File::create(&file_path);
                         match file {
@@ -168,7 +168,8 @@ fn handle_start_record(app: tauri::AppHandle) -> bool {
                                     app.clone(),
                                     port_clone,
                                     is_thread_open_ref,
-                                    file,
+                                    Some(file),
+                                    path_clone
                                 );
                                 println!("finish start clone");
                                 return true;

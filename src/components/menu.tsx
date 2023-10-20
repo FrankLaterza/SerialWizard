@@ -63,21 +63,23 @@ function Serial() {
 
   // same as payload
   type Payload = {
-    connected: boolean;
+    connected: string;
   };
 
-  async function startSerialEventListener() {
+  async function startSerialEventListenerOnIsConnection() {
     await listen<Payload>("isConnected", (event: any) => {
       console.log(event.payload.message);
       if (event.payload.message === "disconnected") { 
         setIsConnected(false);
       }
       sendError("Port has been unexpectedly disconected");
-  });
-}
+    });
+  } 
+
+  
 
   useEffect(() => {
-      startSerialEventListener();
+    startSerialEventListenerOnIsConnection();
   }, []);
 
   return (
@@ -117,6 +119,23 @@ function Serial() {
 function Record(){ 
     const [isDropdownOpen, setIsDropdownOpen] = useState(false);
     const [isRecording, setIsRecording] = useState(false);
+
+        // same as payload
+    type Payload = {
+      connected: string;
+    };
+    async function startSerialEventListenerOnIsRecording() {
+      await listen<Payload>("isRecording", (event: any) => {
+        console.log(event.payload.message);
+        if (event.payload.message === "not recording") { 
+          setIsRecording(false);
+        }
+      });
+    }
+  
+    useEffect(() => {
+      startSerialEventListenerOnIsRecording();
+    }, []);
 
     const openDropdown = () => {
       setIsDropdownOpen(true);
