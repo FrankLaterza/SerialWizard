@@ -7,7 +7,7 @@
     },
     "package": {
         "productName": "SerialWizard",
-        "version": "1.0.0"
+        "version": "1.0.1"
     },
     "tauri": {
         "allowlist": {
@@ -28,7 +28,7 @@
                 "icons/icon.icns",
                 "icons/icon.ico"
             ],
-            "identifier": "serial",
+            "identifier": "SerialWizard",
             "longDescription": "",
             "macOS": {
                 "entitlements": null,
@@ -57,7 +57,7 @@
                 "fullscreen": false,
                 "height": 900,
                 "resizable": true,
-                "title": "serial",
+                "title": "SerialWizard",
                 "width": 1200,
                 "decorations": false
             }
