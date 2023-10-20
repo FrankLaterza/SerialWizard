@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="./src-tauri/icons/WIZARDCAT.png" alt="cat" />
+  <img src="./src-tauri/icons/WIZARDCAT.png" alt="kitty" />
 </p>
 
 # Serial Wizard
