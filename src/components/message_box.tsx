@@ -252,7 +252,7 @@ function Box({lines, setLines}: BoxProps) {
                     />
                     <FiSend
                         onClick={handleSend}
-                        className="color-white bg-violet-800 h-full w-12 p-2"
+                        className="color-white text-white bg-violet-800 h-full w-12 p-2"
                     />
                 </form>
             </div>
