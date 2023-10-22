@@ -214,8 +214,8 @@ function Box({lines, setLines}: BoxProps) {
 
     function writeNewLines(str: string) {
         setMessageBox((messageBox) =>
-            // max 10,000 lines
-            messageBox.concat(str).slice(-10000)
+            // max 1,000,000 lines
+            messageBox.concat(str).slice(-1000000)
         );
     }
       
