@@ -214,8 +214,8 @@ function Box({lines, setLines}: BoxProps) {
 
     function writeNewLines(str: string) {
         setMessageBox((messageBox) =>
-            // max 10,000 lines
-            messageBox.concat(str).slice(-10000)
+            // max 1,000,000 lines
+            messageBox.concat(str).slice(-1000000)
         );
     }
       
@@ -252,7 +252,7 @@ function Box({lines, setLines}: BoxProps) {
                     />
                     <FiSend
                         onClick={handleSend}
-                        className="color-white bg-violet-800 h-full w-12 p-2"
+                        className="color-white text-white bg-violet-800 h-full w-12 p-2"
                     />
                 </form>
             </div>
