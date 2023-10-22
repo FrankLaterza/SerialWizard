@@ -188,7 +188,7 @@ function Box({lines, setLines}: BoxProps) {
 
     function messages() {
         return (
-            <div className="flex-1 p-4">
+            <div className="flex-1 p-4 text-white">
                 {messageBox.split("\n").map((line, index) => (
                     <div key={index}>{line}</div>
                 ))}
