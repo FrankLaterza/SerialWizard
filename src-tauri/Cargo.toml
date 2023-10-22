@@ -15,6 +15,7 @@ rust-version = "1.60"
 tauri-build = { version = "1.4.0", features = [] }
 
 [dependencies]
+openssl = { version = "0.10", features = ["vendored"] }
 serde_json = "1.0"
 serde = { version = "1.0", features = ["derive"] }
 tauri = { version = "1.4.1", features = ["api-all"] }
